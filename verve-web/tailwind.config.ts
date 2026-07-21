@@ -63,8 +63,8 @@ const config: Config = {
         },
       },
       animation: {
-        fadeIn: "fadeIn 400ms easeInOut",
-        slideUp: "slideUp 600ms easeInOut",
+        fadeIn: "fadeIn 400ms ease-in-out",
+        slideUp: "slideUp 600ms ease-in-out",
       },
     },
   },

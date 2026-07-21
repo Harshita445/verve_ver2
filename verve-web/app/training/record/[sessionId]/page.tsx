@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
-import { getSession, updateSession } from "@/lib/api/client";
+import { getSession, updateSession, uploadAudio } from "@/lib/api/client";
 import Waveform from "@/components/recording/Waveform";
 import PromptCard from "@/components/recording/PromptCard";
 import MicPermission from "@/components/recording/MicPermission";
@@ -102,17 +102,24 @@ export default function RecordingPage() {
   const handleSaveAndReview = useCallback(async () => {
     setPhase("saving");
     try {
+      const blob = recorder.audioBlob;
+      if (blob) {
+        const file = new File([blob], `recording-${sessionId}.webm`, {
+          type: blob.type || "audio/webm",
+        });
+        await uploadAudio(sessionId, file);
+      }
       const elapsedSec = Math.floor(recorder.elapsedMs / 1000);
       await updateSession(sessionId, {
         status: "processing",
         duration_seconds: elapsedSec,
       });
     } catch {
-      // best-effort
+      // best-effort — session is already saved with status
     }
     setRedirecting(true);
     setTimeout(() => router.push(`/training/feedback/${sessionId}`), 800);
-  }, [recorder.elapsedMs, sessionId, router]);
+  }, [recorder.audioBlob, recorder.elapsedMs, sessionId, router]);
 
   const formatTimerValue = (ms: number) => {
     const totalSec = Math.max(0, Math.floor(ms / 1000));

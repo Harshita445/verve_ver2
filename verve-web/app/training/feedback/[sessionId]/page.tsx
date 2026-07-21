@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
-import { getSessionResult, type SessionResult } from "@/lib/api/client";
+import { getSessionResult, getSessionStatus, type SessionResult } from "@/lib/api/client";
 import RatingHero from "@/components/feedback/RatingHero";
 import PerformanceSummary from "@/components/feedback/PerformanceSummary";
 import SkillBreakdown from "@/components/feedback/SkillBreakdown";
@@ -23,14 +23,29 @@ export default function FeedbackPage() {
 
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<SessionResult | null>(null);
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null);
+
+  const fetchResult = useCallback(() => {
+    getSessionResult(sessionId)
+      .then((res) => {
+        setResult(res);
+        setProcessingStatus(res.status);
+        if (res.status === "completed") {
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        setLoading(false);
+        router.push("/dashboard");
+      });
+  }, [sessionId, router]);
 
   useEffect(() => {
     if (!sessionId) return;
-    getSessionResult(sessionId)
-      .then(setResult)
-      .catch(() => router.push("/dashboard"))
-      .finally(() => setLoading(false));
-  }, [sessionId, router]);
+    fetchResult();
+    const interval = setInterval(fetchResult, 3000);
+    return () => clearInterval(interval);
+  }, [sessionId, fetchResult]);
 
   if (loading) {
     return (
@@ -44,13 +59,20 @@ export default function FeedbackPage() {
   }
 
   if (!result || !result.feedback) {
+    const statusLabel = processingStatus
+      ? processingStatus.charAt(0).toUpperCase() + processingStatus.slice(1)
+      : "Processing";
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-text-muted">Feedback not available yet.</p>
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
+          <p className="text-sm text-text-muted">{statusLabel} your recording...</p>
+          <p className="mt-2 text-xs text-text-subtle">
+            Transcribing speech, analyzing communication, and generating feedback.
+          </p>
           <Link
             href="/dashboard"
-            className="mt-4 inline-flex h-11 items-center rounded-full bg-gold px-6 text-sm font-semibold text-burgundy-dark"
+            className="mt-8 inline-flex h-11 items-center rounded-full bg-gold px-6 text-sm font-semibold text-burgundy-dark"
           >
             Back to Dashboard
           </Link>
