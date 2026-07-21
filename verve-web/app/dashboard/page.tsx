@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getProgress, type ProgressResponse } from "@/lib/api/client";
+import Skeleton from "@/components/shared/Skeleton";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -29,8 +30,16 @@ export default function DashboardPage() {
 
   if (status === "loading") {
     return (
-      <main className="flex min-h-screen items-center justify-center">
-        <p className="text-text-muted">Loading...</p>
+      <main className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="w-full max-w-content space-y-6">
+          <Skeleton height="36px" width="280px" />
+          <div className="grid gap-6 md:grid-cols-3">
+            <Skeleton height="140px" />
+            <Skeleton height="140px" />
+            <Skeleton height="140px" />
+          </div>
+          <Skeleton height="180px" />
+        </div>
       </main>
     );
   }

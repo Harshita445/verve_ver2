@@ -52,6 +52,7 @@ export default function StageReveal({ visible }: { visible: boolean }) {
           viewBox="0 0 360 440"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
         >
           <defs>
             <radialGradient id="mainSpotlight" cx="50%" cy="0%" r="85%">
@@ -252,8 +253,9 @@ export default function StageReveal({ visible }: { visible: boolean }) {
           animate={{ opacity: [1, 0.3, 1] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
           className="h-2.5 w-2.5 rounded-full bg-success"
+          aria-hidden="true"
         />
-        <span className="text-sm font-medium uppercase tracking-[0.15em] text-gold/60">
+        <span className="text-sm font-medium uppercase tracking-[0.15em] text-gold/60" aria-label="Recording indicator">
           Recording
         </span>
       </motion.div>
@@ -273,6 +275,7 @@ export default function StageReveal({ visible }: { visible: boolean }) {
           viewBox="0 0 24 36"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
         >
           <rect
             x="9"

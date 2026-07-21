@@ -30,7 +30,7 @@ export default function RadarChart({ scores, size = 280 }: Props) {
   const dataPath = dataPoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ") + "Z";
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible">
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible" role="img" aria-label={`Radar chart: ${scores.map(s => `${s.label} ${s.value}%`).join(", ")}`}>
       {Array.from({ length: levels }, (_, level) => (
         <polygon
           key={level}

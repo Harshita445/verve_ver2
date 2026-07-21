@@ -10,6 +10,7 @@ import {
   updateSession,
   type SessionResult,
 } from "@/lib/api/client";
+import Skeleton from "@/components/shared/Skeleton";
 import RatingHero from "@/components/feedback/RatingHero";
 import PerformanceSummary from "@/components/feedback/PerformanceSummary";
 import SkillBreakdown from "@/components/feedback/SkillBreakdown";
@@ -77,10 +78,15 @@ export default function FeedbackPage() {
   // ---- Loading (initial fetch not yet completed) ----
   if (processingStatus === "loading") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
-          <p className="text-sm text-text-muted">Loading feedback...</p>
+      <main className="min-h-screen bg-background">
+        <div className="mx-auto max-w-content space-y-8 px-6 py-12">
+          <Skeleton height="32px" width="180px" />
+          <Skeleton height="160px" />
+          <div className="grid gap-6 sm:grid-cols-2">
+            <Skeleton height="200px" />
+            <Skeleton height="200px" />
+          </div>
+          <Skeleton height="120px" />
         </div>
       </main>
     );
@@ -150,10 +156,15 @@ export default function FeedbackPage() {
   // ---- Completed ----
   if (!result?.feedback) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
-          <p className="text-sm text-text-muted">Loading feedback...</p>
+      <main className="min-h-screen bg-background">
+        <div className="mx-auto max-w-content space-y-8 px-6 py-12">
+          <Skeleton height="32px" width="180px" />
+          <Skeleton height="160px" />
+          <div className="grid gap-6 sm:grid-cols-2">
+            <Skeleton height="200px" />
+            <Skeleton height="200px" />
+          </div>
+          <Skeleton height="120px" />
         </div>
       </main>
     );

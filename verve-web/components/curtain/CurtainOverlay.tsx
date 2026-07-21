@@ -21,7 +21,6 @@ export default function CurtainOverlay({ isOpen, onOpenComplete }: Props) {
           viewBox="0 0 600 1000"
           className="h-full w-full"
           preserveAspectRatio="none"
-          style={{ minWidth: "600px" }}
         >
           <defs>
             <linearGradient id="leftFabric" x1="0" y1="0" x2="1" y2="0">
@@ -116,7 +115,6 @@ export default function CurtainOverlay({ isOpen, onOpenComplete }: Props) {
           viewBox="0 0 600 1000"
           className="h-full w-full"
           preserveAspectRatio="none"
-          style={{ minWidth: "600px" }}
         >
           <defs>
             <linearGradient id="rightFabric" x1="0" y1="0" x2="1" y2="0">

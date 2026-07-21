@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -16,6 +16,11 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    emailRef.current?.focus();
+  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -85,6 +90,8 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               required
+              autoComplete="name"
+              aria-label="Display name"
             />
           </div>
         )}
@@ -94,12 +101,14 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
             Email
           </label>
           <input
+            ref={emailRef}
             className="w-full rounded-lg border border-border bg-elevated p-3 text-text-primary placeholder:text-text-muted focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold/30 transition-all"
             placeholder="you@example.com"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            autoComplete="email"
           />
         </div>
 
@@ -115,6 +124,8 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            aria-label="Password"
           />
         </div>
 

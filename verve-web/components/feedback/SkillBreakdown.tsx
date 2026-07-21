@@ -42,7 +42,14 @@ export default function SkillBreakdown({ skills }: Props) {
               </span>
             </div>
 
-            <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-elevated">
+            <div
+              className="mb-3 h-1.5 overflow-hidden rounded-full bg-elevated"
+              role="progressbar"
+              aria-valuenow={skill.score}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${skill.name} score: ${skill.score} out of 100`}
+            >
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${skill.score}%` }}

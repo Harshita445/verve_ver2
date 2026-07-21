@@ -9,6 +9,7 @@ import { getSession, updateSession, uploadAudio } from "@/lib/api/client";
 import Waveform from "@/components/recording/Waveform";
 import PromptCard from "@/components/recording/PromptCard";
 import MicPermission from "@/components/recording/MicPermission";
+import Skeleton from "@/components/shared/Skeleton";
 
 const FALLBACK_PROMPTS: Record<string, string> = {
   impromptu: "Describe a failure that changed your perspective.",
@@ -139,8 +140,15 @@ export default function RecordingPage() {
 
   if (loadingSession) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-text-muted">Loading session...</p>
+      <main className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="w-full max-w-lg space-y-6">
+          <Skeleton height="24px" width="60%" />
+          <Skeleton height="160px" />
+          <div className="flex justify-center gap-3">
+            <Skeleton height="48px" width="120px" rounded />
+            <Skeleton height="48px" width="120px" rounded />
+          </div>
+        </div>
       </main>
     );
   }
