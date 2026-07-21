@@ -18,8 +18,12 @@ def get_or_create_profile(db: Session, user: User) -> UserProfile:
     if profile is None:
         profile = UserProfile(user_id=user.id)
         db.add(profile)
-        db.commit()
-        db.refresh(profile)
+        try:
+            db.commit()
+            db.refresh(profile)
+        except Exception:
+            db.rollback()
+            raise ProfileNotFoundError("Failed to create profile.")
     return profile
 
 
@@ -30,8 +34,12 @@ def update_profile(
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(profile, field, value)
-    db.commit()
-    db.refresh(profile)
+    try:
+        db.commit()
+        db.refresh(profile)
+    except Exception:
+        db.rollback()
+        raise ProfileNotFoundError("Failed to update profile.")
     return profile
 
 
@@ -42,6 +50,10 @@ def complete_onboarding(
         update_profile(db, user, profile_payload)
     user.onboarding_completed = True
     user.onboarding_step = 5
-    db.commit()
-    db.refresh(user)
+    try:
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
+        raise ProfileNotFoundError("Failed to complete onboarding.")
     return user

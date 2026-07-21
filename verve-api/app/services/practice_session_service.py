@@ -12,6 +12,22 @@ class PracticeSessionError(Exception):
     pass
 
 
+import logging
+
+from sqlalchemy.orm import Session
+from sqlalchemy import desc
+
+from app.models.practice_session import PracticeSession, SessionStatus
+from app.models.user import User
+from app.schemas.practice_session import PracticeSessionCreate, PracticeSessionUpdate
+
+logger = logging.getLogger(__name__)
+
+
+class PracticeSessionError(Exception):
+    pass
+
+
 def create_session(
     db: Session, user: User, payload: PracticeSessionCreate
 ) -> PracticeSession:
@@ -23,8 +39,12 @@ def create_session(
         speak_seconds=payload.speak_seconds,
     )
     db.add(session)
-    db.commit()
-    db.refresh(session)
+    try:
+        db.commit()
+        db.refresh(session)
+    except Exception:
+        db.rollback()
+        raise PracticeSessionError("Failed to create session.")
     return session
 
 
@@ -69,6 +89,10 @@ def update_session(
         from datetime import datetime, timezone
         session.completed_at = datetime.now(timezone.utc)
 
-    db.commit()
-    db.refresh(session)
+    try:
+        db.commit()
+        db.refresh(session)
+    except Exception:
+        db.rollback()
+        raise PracticeSessionError("Failed to update session.")
     return session

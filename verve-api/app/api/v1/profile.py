@@ -40,6 +40,13 @@ def complete_onboarding(
         user = profile_service.complete_onboarding(db, current_user)
     else:
         user.onboarding_step = payload.onboarding_step
-        db.commit()
-        db.refresh(user)
+        try:
+            db.commit()
+            db.refresh(user)
+        except Exception:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update onboarding step.",
+            )
     return user

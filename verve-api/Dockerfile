@@ -11,7 +11,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN addgroup --system --gid 1001 verve \
+    && adduser --system --uid 1001 --ingroup verve --no-create-home verve \
+    && chown -R verve:verve /app
+
+USER verve
+
 EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 # Railway's release-phase command should run `alembic upgrade head`
 # before this container starts receiving traffic.

@@ -72,8 +72,15 @@ def upsert_reflection(
     if payload.what_to_improve is not None:
         reflection.what_to_improve = payload.what_to_improve
 
-    db.commit()
-    db.refresh(reflection)
+    try:
+        db.commit()
+        db.refresh(reflection)
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save reflection.",
+        )
 
     return ReflectionResponse(
         id=reflection.id,

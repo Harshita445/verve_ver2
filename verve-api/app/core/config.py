@@ -1,5 +1,8 @@
+import json
 from functools import lru_cache
+from typing import Any
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +20,21 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
 
     cors_origins: list[str] = ["http://localhost:3000"]
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: Any) -> list[str]:
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return [str(item) for item in parsed]
+            except json.JSONDecodeError:
+                pass
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        if isinstance(v, list):
+            return [str(item) for item in v]
+        return ["http://localhost:3000"]
 
     # --- OpenAI / Whisper ---
     openai_api_key: str | None = None

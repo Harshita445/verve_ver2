@@ -49,8 +49,13 @@ def create_user(db: Session, payload: SignupRequest) -> User:
         current_rating=1200,
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        db.commit()
+        db.refresh(user)
+    except Exception as e:
+        db.rollback()
+        logger.exception("Failed to create user")
+        raise AuthError("Failed to create account.") from e
     return user
 
 
@@ -69,7 +74,11 @@ def issue_refresh_token(db: Session, user: User) -> str:
     encoded token to be set as the httpOnly cookie."""
     token, jti, expires_at = create_refresh_token(str(user.id))
     db.add(RefreshToken(id=jti, user_id=user.id, expires_at=expires_at))
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise AuthError("Failed to issue refresh token.")
     return token
 
 
@@ -128,7 +137,10 @@ def revoke_refresh_token(db: Session, raw_token: str) -> None:
     row = db.get(RefreshToken, jti)
     if row is not None and row.revoked_at is None:
         row.revoked_at = datetime.now(timezone.utc)
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
 
 
 def _revoke_all_refresh_tokens(db: Session, user_id: uuid.UUID) -> None:
@@ -140,7 +152,10 @@ def _revoke_all_refresh_tokens(db: Session, user_id: uuid.UUID) -> None:
     )
     for row in rows:
         row.revoked_at = now
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
 
 
 # --- Forgot / reset password ---------------------------------------------
@@ -165,7 +180,11 @@ def create_password_reset_token(db: Session, email: str) -> str | None:
             expires_at=datetime.now(timezone.utc) + RESET_TOKEN_TTL,
         )
     )
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        return None
 
     # No email provider is wired up yet (see CONTEXT.md build order) — log
     # the link server-side so the flow is testable end to end until one
@@ -196,4 +215,8 @@ def reset_password(db: Session, raw_token: str, new_password: str) -> None:
     user.password_hash = hash_password(new_password)
     row.used_at = datetime.now(timezone.utc)
     _revoke_all_refresh_tokens(db, user.id)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise AuthError("Failed to reset password.")
