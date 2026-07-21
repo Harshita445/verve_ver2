@@ -15,7 +15,7 @@ class FeedbackEngineError(Exception):
     pass
 
 
-FEEDBACK_PROMPT = """You are a communication coach. Analyze the following practice session transcript and return a JSON object with these exact keys:
+FEEDBACK_PROMPT = """You are a communication coach with decades of experience. Analyze the following practice session transcript and return a JSON object with these exact keys:
 
 - overall_score: integer 0-100
 - structure_score: integer 0-100
@@ -24,15 +24,50 @@ FEEDBACK_PROMPT = """You are a communication coach. Analyze the following practi
 - persuasion_score: integer 0-100
 - confidence_score: integer 0-100
 - examples_score: integer 0-100
+
 - strongest_skill: string (one of: Structure, Relevance, Evidence, Persuasion, Confidence, Examples)
 - weakest_skill: string
-- next_focus: string (one sentence actionable advice)
-- summary: string (2-3 sentence overall assessment)
+- next_focus: string (a warm, actionable one-sentence piece of advice)
+- summary: string (2-3 sentence overall assessment, written as a coach would speak — encouraging, human, specific)
+
+- skills: array of 8 objects, each with:
+  - name: "Structure" | "Relevance" | "Evidence" | "Persuasion" | "Confidence" | "Examples" | "Transitions" | "Storytelling"
+  - score: integer 0-100
+  - description: string (2-sentence observation of how they performed)
+  - improvement_tip: string (specific, actionable tip to improve this skill)
+
+- timeline: array of 5-7 significant moments from the recording, each with:
+  - timestamp_seconds: integer (when in the recording this moment occurred)
+  - label: string (short label e.g. "Strong Opening", "Long Pause", "Good Example", "Weak Transition", "Strong Conclusion")
+  - description: string (1-sentence observation)
+  - type: "strong" | "weakness" | "improvement" | "neutral"
+
+- transcript_annotations: array of 3-5 key passages from the transcript with coaching notes:
+  - text: string (the exact passage, quoted directly from the transcript)
+  - annotation: string (coaching note about this passage)
+  - type: "strong" | "weakness" | "neutral"
+
+- statistics:
+  - duration_seconds: integer (total speaking time)
+  - words_spoken: integer (estimated total words)
+  - speaking_rate_wpm: float (words per minute, or null if cannot estimate)
+  - longest_pause_seconds: float (or null)
+  - filler_word_count: integer (estimated count of "um", "uh", "like", "you know", etc.)
+  - vocabulary_diversity: float 0.0-1.0 (type-token ratio estimate, or null)
+  - sentence_variety: float 0.0-1.0 (mix of short/medium/long sentences, or null)
+  - avg_response_length_words: float (or null)
+
+- next_challenge:
+  - mode: "impromptu" | "debate" | "interview" | "storytelling"
+  - difficulty: "beginner" | "intermediate" | "advanced"
+  - reason: string (why this challenge is recommended for this user)
 
 Session mode: {mode}
 Prompt: {prompt}
 Transcript:
 {transcript}
+
+IMPORTANT: Return ONLY valid JSON. Every field is required unless noted as optional.
 """
 
 
@@ -100,6 +135,10 @@ class FeedbackEngine:
             "strongest_skill",
             "weakest_skill",
             "next_focus",
+            "skills",
+            "timeline",
+            "transcript_annotations",
+            "next_challenge",
         ]
         for key in required:
             if key not in data:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timezone
 
@@ -118,6 +119,15 @@ def process_session(self: DatabaseTask, session_id: str) -> None:
 
         # --- Step 6: Store feedback report ---
         logger.info("Step 6/7: Storing feedback report")
+
+        rich_details = {
+            "skills": feedback_data.get("skills", []),
+            "timeline": feedback_data.get("timeline", []),
+            "transcript_annotations": feedback_data.get("transcript_annotations", []),
+            "statistics": feedback_data.get("statistics"),
+            "next_challenge": feedback_data.get("next_challenge"),
+        }
+
         report = FeedbackReport(
             session_id=session.id,
             user_id=user.id,
@@ -132,6 +142,7 @@ def process_session(self: DatabaseTask, session_id: str) -> None:
             weakest_skill=feedback_data["weakest_skill"],
             next_focus=feedback_data["next_focus"],
             summary=feedback_data.get("summary"),
+            details_json=rich_details,
             rating_before=rating_before,
             rating_after=rating_after,
             rating_change=rating_change,

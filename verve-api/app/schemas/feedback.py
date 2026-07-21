@@ -4,6 +4,48 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class TimelineEntry(BaseModel):
+    timestamp_seconds: int
+    label: str
+    description: str
+    type: str  # "strong", "weakness", "improvement", "neutral"
+
+
+class TranscriptAnnotation(BaseModel):
+    text: str
+    annotation: str
+    type: str  # "strong", "weakness", "neutral"
+
+
+class SessionStatistics(BaseModel):
+    duration_seconds: int
+    words_spoken: int
+    speaking_rate_wpm: float | None
+    longest_pause_seconds: float | None
+    filler_word_count: int
+    vocabulary_diversity: float | None
+    sentence_variety: float | None
+    avg_response_length_words: float | None
+
+
+class SkillDetail(BaseModel):
+    name: str
+    score: int
+    description: str
+    improvement_tip: str
+
+
+class ProgressDelta(BaseModel):
+    skill_name: str
+    change: int  # positive = improvement
+
+
+class NextChallenge(BaseModel):
+    mode: str
+    difficulty: str
+    reason: str
+
+
 class FeedbackReportRead(BaseModel):
     id: uuid.UUID
     session_id: uuid.UUID
@@ -14,6 +56,13 @@ class FeedbackReportRead(BaseModel):
     persuasion_score: int
     confidence_score: int
     examples_score: int
+
+    skills: list[SkillDetail]
+    timeline: list[TimelineEntry]
+    transcript_annotations: list[TranscriptAnnotation]
+    statistics: SessionStatistics | None
+    next_challenge: NextChallenge | None
+
     strongest_skill: str
     weakest_skill: str
     next_focus: str
@@ -39,6 +88,7 @@ class SessionResultRead(BaseModel):
     status: str
     feedback: FeedbackReportRead | None
     transcript_text: str | None
+    progress_deltas: list[ProgressDelta] = []
 
 
 class AudioUploadResponse(BaseModel):
@@ -50,3 +100,16 @@ class AudioUploadResponse(BaseModel):
 class SessionStartResponse(BaseModel):
     session_id: uuid.UUID
     status: str
+
+
+class ReflectionPayload(BaseModel):
+    session_id: uuid.UUID
+    most_difficult_part: str | None = None
+    what_to_improve: str | None = None
+
+
+class ReflectionResponse(BaseModel):
+    id: uuid.UUID
+    session_id: uuid.UUID
+    most_difficult_part: str | None
+    what_to_improve: str | None

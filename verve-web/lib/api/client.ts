@@ -200,7 +200,89 @@ export function updateOnboarding(payload: OnboardingUpdatePayload) {
 }
 
 export type SessionMode = "impromptu" | "debate" | "interview" | "storytelling";
-export type SessionStatus = "pending" | "recording" | "processing" | "complete" | "failed";
+export type SessionStatus = "pending" | "uploading" | "recording" | "processing" | "transcribing" | "analyzing" | "completed" | "failed";
+
+export type TimelineEntry = {
+  timestamp_seconds: number;
+  label: string;
+  description: string;
+  type: "strong" | "weakness" | "improvement" | "neutral";
+};
+
+export type TranscriptAnnotation = {
+  text: string;
+  annotation: string;
+  type: "strong" | "weakness" | "neutral";
+};
+
+export type SessionStatistics = {
+  duration_seconds: number;
+  words_spoken: number;
+  speaking_rate_wpm: number | null;
+  longest_pause_seconds: number | null;
+  filler_word_count: number;
+  vocabulary_diversity: number | null;
+  sentence_variety: number | null;
+  avg_response_length_words: number | null;
+};
+
+export type SkillDetail = {
+  name: string;
+  score: number;
+  description: string;
+  improvement_tip: string;
+};
+
+export type ProgressDelta = {
+  skill_name: string;
+  change: number;
+};
+
+export type NextChallenge = {
+  mode: SessionMode;
+  difficulty: string;
+  reason: string;
+};
+
+export type FeedbackReport = {
+  id: string;
+  session_id: string;
+  overall_score: number;
+  structure_score: number;
+  relevance_score: number;
+  evidence_score: number;
+  persuasion_score: number;
+  confidence_score: number;
+  examples_score: number;
+  skills: SkillDetail[];
+  timeline: TimelineEntry[];
+  transcript_annotations: TranscriptAnnotation[];
+  statistics: SessionStatistics | null;
+  next_challenge: NextChallenge | null;
+  strongest_skill: string;
+  weakest_skill: string;
+  next_focus: string;
+  summary: string | null;
+  rating_before: number;
+  rating_after: number;
+  rating_change: number;
+  created_at: string;
+};
+
+export type SessionResult = {
+  session_id: string;
+  status: string;
+  feedback: FeedbackReport | null;
+  transcript_text: string | null;
+  progress_deltas: ProgressDelta[];
+};
+
+export type ReflectionData = {
+  id: string;
+  session_id: string;
+  most_difficult_part: string | null;
+  what_to_improve: string | null;
+};
 
 export type PracticeSession = {
   id: string;
@@ -255,4 +337,41 @@ export function updateSession(sessionId: string, payload: SessionUpdatePayload) 
     method: "PATCH",
     body: payload,
   });
+}
+
+export function getSessionResult(sessionId: string) {
+  return apiFetch<SessionResult>(`/api/v1/sessions/${sessionId}/result`);
+}
+
+export function getReflection(sessionId: string) {
+  return apiFetch<ReflectionData | null>(`/api/v1/reflections/${sessionId}`);
+}
+
+export function saveReflection(
+  sessionId: string,
+  payload: { most_difficult_part?: string; what_to_improve?: string }
+) {
+  return apiFetch<ReflectionData>(`/api/v1/reflections/${sessionId}`, {
+    method: "PUT",
+    body: { session_id: sessionId, ...payload },
+  });
+}
+
+export function uploadAudio(sessionId: string, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiFetch<{ audio_file_id: string; storage_url: string; session_id: string }>(
+    `/api/v1/sessions/${sessionId}/audio`,
+    {
+      method: "POST",
+      body: formData,
+      headers: {}, // let browser set content-type for multipart
+    }
+  );
+}
+
+export function getSessionStatus(sessionId: string) {
+  return apiFetch<{ id: string; status: string; duration_seconds: number | null; audio_url: string | null }>(
+    `/api/v1/sessions/${sessionId}/status`
+  );
 }

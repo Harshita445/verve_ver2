@@ -20,6 +20,7 @@ from app.models import audio_file  # noqa: E402,F401
 from app.models import transcript  # noqa: E402,F401
 from app.models import feedback_report  # noqa: E402,F401
 from app.models import communication_rating  # noqa: E402,F401
+from app.models import reflection  # noqa: E402,F401
 from app.models import goal  # noqa: E402,F401
 from app.models import achievement  # noqa: E402,F401
 

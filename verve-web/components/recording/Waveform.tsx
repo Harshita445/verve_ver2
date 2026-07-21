@@ -16,8 +16,7 @@ export default function Waveform({ frequencyData, isActive, barCount = 64 }: Pro
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();

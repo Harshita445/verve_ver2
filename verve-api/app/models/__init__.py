@@ -7,6 +7,7 @@ from app.models.audio_file import AudioFile
 from app.models.transcript import Transcript
 from app.models.feedback_report import FeedbackReport
 from app.models.communication_rating import CommunicationRating
+from app.models.reflection import Reflection
 from app.models.goal import Goal
 from app.models.achievement import Achievement
 
