@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const SESSION_HINT_COOKIE = "verve_session_hint";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/onboarding", "/training"];
+const PROTECTED_PREFIXES = ["/dashboard", "/onboarding", "/training", "/progress", "/rankings"];
 
 /**
  * Best-effort route protection.
@@ -45,5 +45,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/training/:path*"],
+  matcher: ["/dashboard/:path*", "/onboarding/:path*", "/training/:path*", "/progress/:path*", "/rankings/:path*"],
 };
