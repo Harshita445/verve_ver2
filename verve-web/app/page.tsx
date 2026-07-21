@@ -64,7 +64,7 @@ export default function Home() {
               <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row lg:justify-start">
                 <Link
                   href="/signup"
-                  className="inline-flex h-[52px] items-center rounded-full bg-gold px-7 text-base font-semibold text-[#4A131C] transition-all duration-300 hover:translate-y-[-3px] hover:shadow-glow"
+                  className="inline-flex h-[52px] items-center rounded-full bg-gold px-7 text-base font-semibold text-burgundy-dark transition-all duration-300 hover:translate-y-[-3px] hover:shadow-glow"
                 >
                   Start Practicing
                 </Link>
@@ -172,7 +172,7 @@ export default function Home() {
         </p>
         <Link
           href="/signup"
-          className="mt-10 inline-flex h-[52px] items-center rounded-full bg-gold px-7 text-base font-semibold text-[#4A131C] transition-all duration-300 hover:translate-y-[-3px] hover:shadow-glow"
+          className="mt-10 inline-flex h-[52px] items-center rounded-full bg-gold px-7 text-base font-semibold text-burgundy-dark transition-all duration-300 hover:translate-y-[-3px] hover:shadow-glow"
         >
           Start Practicing Free
         </Link>

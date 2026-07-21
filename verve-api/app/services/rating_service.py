@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import math
+from app.core.config import get_settings
 
+settings = get_settings()
 
-K_FACTOR = 32
-EXPECTED_SCORE_MAX = 100
+K_FACTOR = settings.rating_k_factor
+EXPECTED_SCORE_MAX = settings.rating_expected_score_max
 
 
 def calculate_rating_change(current_rating: int, overall_score: int) -> int:

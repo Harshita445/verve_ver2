@@ -51,6 +51,23 @@ class Settings(BaseSettings):
     cloudinary_api_key: str | None = None
     cloudinary_api_secret: str | None = None
 
+    # --- Audio ---
+    max_audio_size_mb: int = 50
+    allowed_audio_formats: list[str] = ["audio/webm", "audio/mp4", "audio/wav", "audio/mpeg", "audio/ogg"]
+
+    # --- Rating ---
+    rating_k_factor: int = 32
+    rating_expected_score_max: int = 100
+
+    # --- Auth ---
+    reset_token_ttl_minutes: int = 30
+
+    # --- Rate Limiting ---
+    rate_limit_login_max: int = 5
+    rate_limit_login_window_seconds: int = 60
+    rate_limit_signup_max: int = 5
+    rate_limit_signup_window_seconds: int = 300
+
     # --- Celery / Redis ---
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/0"

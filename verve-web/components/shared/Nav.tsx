@@ -11,6 +11,7 @@ const navLinks = [
   { href: "/training", label: "Practice" },
   { href: "/progress", label: "Progress" },
   { href: "/rankings", label: "Rankings" },
+  { href: "/goals", label: "Goals" },
 ];
 
 function useIsActive(href: string, pathname: string) {

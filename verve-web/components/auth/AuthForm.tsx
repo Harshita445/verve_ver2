@@ -14,6 +14,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -25,6 +26,12 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    if (mode === "signup" && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -112,22 +119,44 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
           />
         </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-medium text-text-secondary">
-            Password
-          </label>
-          <input
-            className="w-full rounded-lg border border-border bg-elevated p-3 text-text-primary placeholder:text-text-muted focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold/30 transition-all"
-            placeholder="Min. 8 characters"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            autoComplete={mode === "login" ? "current-password" : "new-password"}
-            aria-label="Password"
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="text-sm font-medium text-text-secondary">Password</label>
+              {mode === "login" && (
+                <Link href="/forgot-password" className="text-xs font-medium text-gold/70 transition-colors hover:text-gold">
+                  Forgot?
+                </Link>
+              )}
+            </div>
+            <input
+              className="w-full rounded-lg border border-border bg-elevated p-3 text-text-primary placeholder:text-text-muted focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold/30 transition-all"
+              placeholder="Min. 8 characters"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              aria-label="Password"
           />
         </div>
+
+        {mode === "signup" && (
+          <div>
+            <label className="mb-2 block text-sm font-medium text-text-secondary">Confirm Password</label>
+            <input
+              className="w-full rounded-lg border border-border bg-elevated p-3 text-text-primary placeholder:text-text-muted focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold/30 transition-all"
+              placeholder="Repeat your password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              minLength={8}
+              autoComplete="new-password"
+              aria-label="Confirm password"
+            />
+          </div>
+        )}
 
         {error && (
           <div className="rounded-lg border border-error/20 bg-error/5 p-3 text-sm text-error">
@@ -136,7 +165,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
         )}
 
         <button
-          className="flex h-[52px] w-full items-center justify-center rounded-full bg-gold text-base font-semibold text-[#4A131C] transition-all duration-300 hover:translate-y-[-2px] hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+          className="flex h-[52px] w-full items-center justify-center rounded-full bg-gold text-base font-semibold text-burgundy-dark transition-all duration-300 hover:translate-y-[-2px] hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
           disabled={loading}
         >
           {loading

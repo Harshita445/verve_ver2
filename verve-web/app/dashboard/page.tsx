@@ -8,6 +8,8 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getProgress, type ProgressResponse } from "@/lib/api/client";
 import Skeleton from "@/components/shared/Skeleton";
+import AchievementBadges from "@/components/dashboard/AchievementBadges";
+import DailyChallengeCard from "@/components/dashboard/DailyChallenge";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -79,7 +81,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-4">
             <Link
               href="/training"
-              className="inline-flex h-[52px] items-center rounded-full bg-gold px-7 text-base font-semibold text-[#4A131C] transition-all duration-300 hover:translate-y-[-2px] hover:shadow-glow"
+              className="inline-flex h-[52px] items-center rounded-full bg-gold px-7 text-base font-semibold text-burgundy-dark transition-all duration-300 hover:translate-y-[-2px] hover:shadow-glow"
             >
               New Session
             </Link>
@@ -169,11 +171,23 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
+        <div className="mt-8 grid gap-6 md:grid-cols-2">
+          <DailyChallengeCard />
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+            className="rounded-card border border-border bg-card p-6 shadow-soft"
+          >
+            <AchievementBadges />
+          </motion.div>
+        </div>
+
         {!hasSessions && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.4, ease: "easeInOut" }}
+            transition={{ duration: 0.4, delay: 0.45, ease: "easeInOut" }}
             className="mt-8 rounded-card border border-dashed border-border p-12 text-center"
           >
             <p className="font-heading text-2xl font-semibold text-text-muted">

@@ -24,7 +24,7 @@ settings = get_settings()
 
 # How long a password-reset link stays valid. Short-lived by design — this
 # is a bearer credential that only needs to survive an inbox check.
-RESET_TOKEN_TTL = timedelta(minutes=30)
+RESET_TOKEN_TTL = timedelta(minutes=settings.reset_token_ttl_minutes)
 
 
 class AuthError(Exception):

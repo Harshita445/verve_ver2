@@ -76,7 +76,7 @@ export default function RadarChart({ scores, size = 280 }: Props) {
         opacity={0.3}
       />
 
-      <path d={dataPath} fill="rgba(212, 175, 55, 0.1)" stroke="#D4AF37" strokeWidth={2} />
+      <path d={dataPath} fill="rgba(212, 175, 55, 0.1)" stroke="currentColor" strokeWidth={2} className="text-gold" />
 
       {dataPoints.map((p, i) => (
         <circle key={i} cx={p.x} cy={p.y} r={4} fill="#D4AF37" />

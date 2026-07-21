@@ -98,10 +98,10 @@ export default function FeedbackPage() {
       <main className="flex min-h-screen items-center justify-center bg-background px-6">
         <div className="max-w-md text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-error/20 bg-error/10">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-error">
               <circle cx="10" cy="10" r="9" />
               <line x1="10" y1="6" x2="10" y2="11" />
-              <circle cx="10" cy="14" r="1" fill="#EF4444" />
+              <circle cx="10" cy="14" r="1" fill="currentColor" />
             </svg>
           </div>
           <p className="text-sm font-medium uppercase tracking-[0.2em] text-error/70">

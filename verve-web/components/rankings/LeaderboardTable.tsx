@@ -44,7 +44,7 @@ export default function LeaderboardTable({ entries }: Props) {
               <span
                 className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
                   entry.rank === 1
-                    ? "bg-gold text-[#4A131C]"
+                    ? "bg-gold text-burgundy-dark"
                     : entry.rank === 2
                       ? "bg-text-muted text-background"
                       : "bg-burgundy text-gold"

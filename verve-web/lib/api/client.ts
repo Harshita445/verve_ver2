@@ -431,3 +431,67 @@ export type ProgressResponse = {
 export function getProgress() {
   return apiFetch<ProgressResponse>("/api/v1/progress");
 }
+
+export type GoalData = {
+  id: string;
+  user_id: string;
+  description: string;
+  target_sessions: number;
+  current_progress: number;
+  achieved: boolean;
+  created_at: string;
+};
+
+export type GoalCreatePayload = {
+  description: string;
+  target_sessions?: number;
+};
+
+export type GoalUpdatePayload = {
+  description?: string;
+  target_sessions?: number;
+  current_progress?: number;
+  achieved?: boolean;
+};
+
+export function getGoals() {
+  return apiFetch<GoalData[]>("/api/v1/goals");
+}
+
+export function createGoal(payload: GoalCreatePayload) {
+  return apiFetch<GoalData>("/api/v1/goals", { method: "POST", body: payload });
+}
+
+export function updateGoal(goalId: string, payload: GoalUpdatePayload) {
+  return apiFetch<GoalData>(`/api/v1/goals/${goalId}`, { method: "PUT", body: payload });
+}
+
+export function deleteGoal(goalId: string) {
+  return apiFetch<void>(`/api/v1/goals/${goalId}`, { method: "DELETE" });
+}
+
+export type AchievementData = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  unlocked_at: string | null;
+  created_at: string;
+};
+
+export function getAchievements() {
+  return apiFetch<AchievementData[]>("/api/v1/achievements");
+}
+
+export type DailyChallenge = {
+  mode: string;
+  prompt_text: string;
+  difficulty: string;
+  prep_seconds: number;
+  speak_seconds: number;
+};
+
+export function getDailyChallenge() {
+  return apiFetch<DailyChallenge>("/api/v1/challenges/daily");
+}

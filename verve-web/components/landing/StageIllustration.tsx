@@ -7,7 +7,7 @@ export default function StageIllustration() {
     <div className="relative flex items-center justify-center" aria-hidden="true">
       <svg
         viewBox="0 0 400 500"
-        className="w-full h-auto max-w-[400px]"
+        className="w-full h-auto max-w-[400px] text-gold"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
@@ -133,7 +133,7 @@ export default function StageIllustration() {
 
           <path
             d="M200 140 L140 460 M200 140 L260 460"
-            stroke="#D4AF37"
+            stroke="currentColor"
             strokeWidth="1"
             opacity="0.08"
           />

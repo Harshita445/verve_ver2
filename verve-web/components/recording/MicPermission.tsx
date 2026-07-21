@@ -23,10 +23,11 @@ export default function MicPermission({ onAllow, onCancel, loading }: Props) {
             height="32"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#D4AF37"
+            stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
+            className="text-gold"
           >
             <rect x="9" y="2" width="6" height="12" rx="3" />
             <path d="M5 10a7 7 0 0 0 14 0" />
@@ -47,7 +48,7 @@ export default function MicPermission({ onAllow, onCancel, loading }: Props) {
           <button
             onClick={onAllow}
             disabled={loading}
-            className="inline-flex h-[52px] w-full items-center justify-center rounded-full bg-gold px-7 text-base font-semibold text-[#4A131C] transition-all duration-300 hover:translate-y-[-2px] hover:shadow-glow sm:w-auto disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-[52px] w-full items-center justify-center rounded-full bg-gold px-7 text-base font-semibold text-burgundy-dark transition-all duration-300 hover:translate-y-[-2px] hover:shadow-glow sm:w-auto disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? "Requesting..." : "Allow Access"}
           </button>

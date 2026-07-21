@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.auth.deps import get_current_user
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.audio_file import AudioFile
 from app.models.practice_session import PracticeSession, SessionStatus
@@ -18,8 +19,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/sessions/{session_id}/audio", tags=["audio"])
 
-MAX_AUDIO_SIZE = 50 * 1024 * 1024
-ALLOWED_FORMATS = {"audio/webm", "audio/mp4", "audio/wav", "audio/mpeg", "audio/ogg"}
+settings = get_settings()
+MAX_AUDIO_SIZE = settings.max_audio_size_mb * 1024 * 1024
+ALLOWED_FORMATS = set(settings.allowed_audio_formats)
 
 # Magic bytes for common audio formats
 MAGIC_BYTES: dict[bytes, str] = {

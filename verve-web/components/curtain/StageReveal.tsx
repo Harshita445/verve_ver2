@@ -276,6 +276,7 @@ export default function StageReveal({ visible }: { visible: boolean }) {
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
+          className="text-gold"
         >
           <rect
             x="9"
@@ -283,13 +284,13 @@ export default function StageReveal({ visible }: { visible: boolean }) {
             width="6"
             height="18"
             rx="3"
-            stroke="#D4AF37"
+            stroke="currentColor"
             strokeWidth="1.5"
             opacity="0.4"
           />
           <path
             d="M5 14a7 7 0 0 0 14 0"
-            stroke="#D4AF37"
+            stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             opacity="0.4"
@@ -299,7 +300,7 @@ export default function StageReveal({ visible }: { visible: boolean }) {
             y1="23"
             x2="12"
             y2="32"
-            stroke="#D4AF37"
+            stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             opacity="0.4"
@@ -309,7 +310,7 @@ export default function StageReveal({ visible }: { visible: boolean }) {
             y1="32"
             x2="16"
             y2="32"
-            stroke="#D4AF37"
+            stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             opacity="0.4"
