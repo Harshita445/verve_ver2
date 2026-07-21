@@ -1,21 +1,31 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { getProgress, type ProgressResponse } from "@/lib/api/client";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, status, logout } = useAuth();
+  const [progress, setProgress] = useState<ProgressResponse | null>(null);
 
   useEffect(() => {
     if (status === "authenticated" && user && !user.onboarding_completed) {
       router.push("/onboarding");
     }
   }, [status, user, router]);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      getProgress()
+        .then(setProgress)
+        .catch(() => {});
+    }
+  }, [status]);
 
   if (status === "loading") {
     return (
@@ -42,6 +52,8 @@ export default function DashboardPage() {
     await logout();
     router.push("/login");
   }
+
+  const hasSessions = (progress?.total_sessions ?? 0) > 0;
 
   return (
     <main className="min-h-screen bg-background">
@@ -97,7 +109,7 @@ export default function DashboardPage() {
               Sessions
             </p>
             <p className="mt-2 font-heading text-5xl font-semibold text-text-primary">
-              0
+              {progress?.total_sessions ?? 0}
             </p>
             <p className="mt-1 text-sm text-text-muted">Total Practice Sessions</p>
           </motion.div>
@@ -112,7 +124,7 @@ export default function DashboardPage() {
               Streak
             </p>
             <p className="mt-2 font-heading text-5xl font-semibold text-text-primary">
-              0
+              {progress?.current_streak ?? 0}
             </p>
             <p className="mt-1 text-sm text-text-muted">Day Streak</p>
           </motion.div>
@@ -148,20 +160,22 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.4, ease: "easeInOut" }}
-          className="mt-8 rounded-card border border-dashed border-border p-12 text-center"
-        >
-          <p className="font-heading text-2xl font-semibold text-text-muted">
-            No sessions yet
-          </p>
-          <p className="mt-2 text-text-muted">
-            Complete your first practice session to see your feedback and
-            progress here.
-          </p>
-        </motion.div>
+        {!hasSessions && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.4, ease: "easeInOut" }}
+            className="mt-8 rounded-card border border-dashed border-border p-12 text-center"
+          >
+            <p className="font-heading text-2xl font-semibold text-text-muted">
+              No sessions yet
+            </p>
+            <p className="mt-2 text-text-muted">
+              Complete your first practice session to see your feedback and
+              progress here.
+            </p>
+          </motion.div>
+        )}
       </div>
     </main>
   );

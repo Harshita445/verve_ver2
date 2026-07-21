@@ -1,26 +1,23 @@
 "use client";
 
-type Entry = {
-  rank: number;
-  name: string;
-  rating: number;
-  strength: string;
-  streak: number;
-  isCurrentUser?: boolean;
+import type { LeaderboardEntry } from "@/lib/api/client";
+
+type Props = {
+  entries: LeaderboardEntry[];
 };
 
-const entries: Entry[] = [
-  { rank: 1, name: "Alex Chen", rating: 1482, strength: "Storytelling", streak: 12 },
-  { rank: 2, name: "Samira Patel", rating: 1445, strength: "Debate", streak: 8 },
-  { rank: 3, name: "Marcus Webb", rating: 1420, strength: "Impromptu", streak: 6 },
-  { rank: 4, name: "Jordan Lee", rating: 1398, strength: "Interview", streak: 5, isCurrentUser: true },
-  { rank: 5, name: "Taylor Quinn", rating: 1375, strength: "Debate", streak: 4 },
-  { rank: 6, name: "Riley Zhang", rating: 1350, strength: "Storytelling", streak: 3 },
-  { rank: 7, name: "Casey Brooks", rating: 1320, strength: "Impromptu", streak: 2 },
-  { rank: 8, name: "Morgan Walsh", rating: 1295, strength: "Interview", streak: 1 },
-];
+export default function LeaderboardTable({ entries }: Props) {
+  if (entries.length === 0) {
+    return (
+      <div className="rounded-card border border-border bg-card p-12 text-center">
+        <p className="text-sm text-text-muted">No rankings available yet.</p>
+        <p className="mt-1 text-xs text-text-subtle">
+          Complete sessions to appear on the leaderboard.
+        </p>
+      </div>
+    );
+  }
 
-export default function LeaderboardTable() {
   return (
     <div className="overflow-hidden rounded-card border border-border">
       <div className="grid grid-cols-5 gap-4 border-b border-border bg-elevated px-6 py-4 text-xs font-medium uppercase tracking-[0.15em] text-text-muted">
@@ -32,9 +29,9 @@ export default function LeaderboardTable() {
 
       {entries.map((entry, i) => (
         <div
-          key={entry.rank}
+          key={entry.user_id}
           className={`grid grid-cols-5 gap-4 border-b border-border px-6 py-4 text-sm transition-colors last:border-0 ${
-            entry.isCurrentUser
+            entry.is_current_user
               ? "bg-gold/5"
               : i % 2 === 0
                 ? "bg-card"
@@ -61,18 +58,20 @@ export default function LeaderboardTable() {
 
           <div className="col-span-2 flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-elevated text-xs font-medium text-text-primary">
-              {entry.name.split(" ").map((n) => n[0]).join("")}
+              {entry.avatar_initials}
             </div>
             <div>
-              <p className={`font-medium ${entry.isCurrentUser ? "text-gold" : "text-text-primary"}`}>
+              <p className={`font-medium ${entry.is_current_user ? "text-gold" : "text-text-primary"}`}>
                 {entry.name}
-                {entry.isCurrentUser && (
+                {entry.is_current_user && (
                   <span className="ml-2 text-[10px] uppercase tracking-[0.1em] text-gold/60">
                     You
                   </span>
                 )}
               </p>
-              <p className="text-xs text-text-muted">{entry.strength}</p>
+              {entry.strongest_skill && (
+                <p className="text-xs text-text-muted">{entry.strongest_skill}</p>
+              )}
             </div>
           </div>
 

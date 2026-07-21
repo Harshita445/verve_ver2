@@ -375,3 +375,59 @@ export function getSessionStatus(sessionId: string) {
     `/api/v1/sessions/${sessionId}/status`
   );
 }
+
+export type LeaderboardEntry = {
+  rank: number;
+  user_id: string;
+  name: string;
+  avatar_initials: string;
+  rating: number;
+  strongest_skill: string | null;
+  streak: number;
+  is_current_user: boolean;
+};
+
+export type LeaderboardResponse = {
+  entries: LeaderboardEntry[];
+  total_count: number;
+};
+
+export function getLeaderboard(limit = 50) {
+  return apiFetch<LeaderboardResponse>(`/api/v1/rankings?limit=${limit}`);
+}
+
+export type SkillAverage = {
+  name: string;
+  average_score: number;
+};
+
+export type RecentSessionEntry = {
+  session_id: string;
+  mode: string;
+  rating_before: number;
+  rating_after: number;
+  rating_change: number;
+  overall_score: number;
+  created_at: string;
+};
+
+export type RatingHistoryPoint = {
+  session_id: string;
+  rating_after: number;
+  created_at: string;
+};
+
+export type ProgressResponse = {
+  total_sessions: number;
+  current_streak: number;
+  average_rating: number;
+  current_rating: number;
+  best_mode: string | null;
+  skill_averages: SkillAverage[];
+  recent_sessions: RecentSessionEntry[];
+  rating_history: RatingHistoryPoint[];
+};
+
+export function getProgress() {
+  return apiFetch<ProgressResponse>("/api/v1/progress");
+}
