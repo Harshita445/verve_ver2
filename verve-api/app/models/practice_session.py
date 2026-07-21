@@ -19,9 +19,12 @@ class SessionMode(str, enum.Enum):
 
 class SessionStatus(str, enum.Enum):
     pending = "pending"
+    uploading = "uploading"
     recording = "recording"
     processing = "processing"
-    complete = "complete"
+    transcribing = "transcribing"
+    analyzing = "analyzing"
+    completed = "completed"
     failed = "failed"
 
 

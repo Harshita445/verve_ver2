@@ -16,6 +16,12 @@ from app.models import practice_session  # noqa: E402,F401 - import registers th
 from app.models import refresh_token  # noqa: E402,F401 - import registers the model on Base.metadata
 from app.models import password_reset_token  # noqa: E402,F401 - import registers the model on Base.metadata
 from app.models import user_profile  # noqa: E402,F401 - import registers the model on Base.metadata
+from app.models import audio_file  # noqa: E402,F401
+from app.models import transcript  # noqa: E402,F401
+from app.models import feedback_report  # noqa: E402,F401
+from app.models import communication_rating  # noqa: E402,F401
+from app.models import goal  # noqa: E402,F401
+from app.models import achievement  # noqa: E402,F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

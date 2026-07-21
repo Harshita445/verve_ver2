@@ -39,3 +39,8 @@ class PracticeSessionRead(BaseModel):
 class PracticeSessionListRead(BaseModel):
     sessions: list[PracticeSessionRead]
     total: int
+
+
+class PracticeSessionStartResponse(BaseModel):
+    session_id: uuid.UUID
+    status: str

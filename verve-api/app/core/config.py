@@ -18,12 +18,24 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # --- OpenAI / Whisper ---
     openai_api_key: str | None = None
-    whisper_api_key: str | None = None
+    feedback_model: str = "gpt-4o-mini"
 
+    # --- Storage (Cloudinary / S3) ---
+    storage_provider: str = "local"
     storage_bucket: str | None = None
     storage_access_key: str | None = None
     storage_secret_key: str | None = None
+    s3_endpoint_url: str | None = None
+    s3_public_url: str | None = None
+    cloudinary_cloud_name: str | None = None
+    cloudinary_api_key: str | None = None
+    cloudinary_api_secret: str | None = None
+
+    # --- Celery / Redis ---
+    celery_broker_url: str = "redis://localhost:6379/0"
+    celery_result_backend: str = "redis://localhost:6379/0"
 
 
 @lru_cache
