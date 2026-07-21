@@ -20,6 +20,8 @@ class UserOut(BaseModel):
     display_name: str
     avatar_initials: str
     current_rating: int
+    onboarding_completed: bool
+    onboarding_step: int
 
     class Config:
         from_attributes = True

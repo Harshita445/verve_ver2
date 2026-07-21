@@ -10,29 +10,71 @@ export class ApiError extends Error {
 
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
+  /** Skip the refresh-on-401 retry (used by the refresh call itself to avoid loops). */
+  skipAuthRetry?: boolean;
 };
+
+/**
+ * In-memory access token. Never persisted (no localStorage/sessionStorage) —
+ * the refresh token is an httpOnly cookie the browser manages, and the
+ * access token only needs to survive for the lifetime of the tab, restored
+ * via /auth/refresh on load. Read/write only through get/setAccessToken.
+ */
+let accessToken: string | null = null;
+
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
+export function setAccessToken(token: string | null): void {
+  accessToken = token;
+}
+
+/**
+ * Set by AuthProvider so apiFetch can trigger a refresh-on-401 without a
+ * circular import. Not called directly outside this module.
+ */
+let refreshHandler: (() => Promise<string | null>) | null = null;
+
+export function setRefreshHandler(handler: (() => Promise<string | null>) | null): void {
+  refreshHandler = handler;
+}
 
 /**
  * Minimal typed fetch wrapper. Every call to the FastAPI backend goes
  * through this so headers, base URL, and error handling stay in one place.
- * Auth token attachment / refresh-on-401 retry logic gets added here once
- * the auth flow is wired up (Build Order step 2).
+ * Attaches the in-memory access token as a Bearer header when present, and
+ * on a 401 tries exactly one refresh-and-retry before giving up.
  */
 export async function apiFetch<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { body, headers, ...rest } = options;
+  const { body, headers, skipAuthRetry, ...rest } = options;
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...rest,
-    headers: {
-      "Content-Type": "application/json",
-      ...headers,
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-    cache: "no-store",
-  });
+  const doFetch = () =>
+    fetch(`${API_URL}${path}`, {
+      ...rest,
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...headers,
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      // Refresh token lives in an httpOnly cookie — must be sent/received
+      // for /auth/refresh and /auth/logout to work cross-origin.
+      credentials: "include",
+      cache: "no-store",
+    });
+
+  let res = await doFetch();
+
+  if (res.status === 401 && !skipAuthRetry && refreshHandler) {
+    const newToken = await refreshHandler();
+    if (newToken) {
+      res = await doFetch();
+    }
+  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
@@ -53,4 +95,106 @@ export type HealthResponse = {
 
 export function getHealth() {
   return apiFetch<HealthResponse>("/health");
+}
+
+export type User = {
+  id: string;
+  email: string;
+  display_name: string;
+  avatar_initials: string;
+  current_rating: number;
+  onboarding_completed: boolean;
+  onboarding_step: number;
+};
+
+export type UserProfile = {
+  id: string;
+  user_id: string;
+  bio: string | null;
+  job_title: string | null;
+  company: string | null;
+  communication_goals: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProfileUpdatePayload = {
+  bio?: string | null;
+  job_title?: string | null;
+  company?: string | null;
+  communication_goals?: string | null;
+};
+
+export type OnboardingUpdatePayload = {
+  onboarding_completed: boolean;
+  onboarding_step: number;
+};
+
+export type TokenResponse = {
+  access_token: string;
+  token_type: string;
+  user: User;
+};
+
+export type SignupPayload = {
+  email: string;
+  password: string;
+  display_name: string;
+};
+
+export type LoginPayload = {
+  email: string;
+  password: string;
+};
+
+export function signup(payload: SignupPayload) {
+  return apiFetch<TokenResponse>("/api/v1/auth/signup", {
+    method: "POST",
+    body: payload,
+    skipAuthRetry: true,
+  });
+}
+
+export function login(payload: LoginPayload) {
+  return apiFetch<TokenResponse>("/api/v1/auth/login", {
+    method: "POST",
+    body: payload,
+    skipAuthRetry: true,
+  });
+}
+
+export function refreshSession() {
+  return apiFetch<TokenResponse>("/api/v1/auth/refresh", {
+    method: "POST",
+    skipAuthRetry: true,
+  });
+}
+
+export function logout() {
+  return apiFetch<void>("/api/v1/auth/logout", {
+    method: "POST",
+    skipAuthRetry: true,
+  });
+}
+
+export function getCurrentUser() {
+  return apiFetch<User>("/api/v1/users/me");
+}
+
+export function getProfile() {
+  return apiFetch<UserProfile>("/api/v1/profile");
+}
+
+export function updateProfile(payload: ProfileUpdatePayload) {
+  return apiFetch<UserProfile>("/api/v1/profile", {
+    method: "PUT",
+    body: payload,
+  });
+}
+
+export function updateOnboarding(payload: OnboardingUpdatePayload) {
+  return apiFetch<User>("/api/v1/profile/onboarding", {
+    method: "POST",
+    body: payload,
+  });
 }

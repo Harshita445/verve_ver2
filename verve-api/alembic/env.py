@@ -15,6 +15,7 @@ from app.models import user  # noqa: E402,F401 - import registers the model on B
 from app.models import practice_session  # noqa: E402,F401 - import registers the model on Base.metadata
 from app.models import refresh_token  # noqa: E402,F401 - import registers the model on Base.metadata
 from app.models import password_reset_token  # noqa: E402,F401 - import registers the model on Base.metadata
+from app.models import user_profile  # noqa: E402,F401 - import registers the model on Base.metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

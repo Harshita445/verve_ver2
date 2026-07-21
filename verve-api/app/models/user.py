@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Integer, DateTime
+from sqlalchemy import Boolean, Integer, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +19,8 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String, nullable=False)
     avatar_initials: Mapped[str] = mapped_column(String(4), nullable=False)
     current_rating: Mapped[int] = mapped_column(Integer, default=1200)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    onboarding_step: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

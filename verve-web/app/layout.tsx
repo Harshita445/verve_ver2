@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
+import Nav from "@/components/shared/Nav";
 
 const heading = Cormorant_Garamond({
   subsets: ["latin"],
@@ -25,7 +27,12 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${heading.variable} ${body.variable}`}>
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          <Nav />
+          <div className="pt-16">{children}</div>
+        </AuthProvider>
+      </body>
     </html>
   );
 }

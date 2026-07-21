@@ -38,7 +38,33 @@ const config: Config = {
         body: ["var(--font-body)", "sans-serif"],
       },
       borderRadius: {
-        card: "16px",
+        card: "18px",
+      },
+      boxShadow: {
+        soft: "0 10px 40px rgba(0,0,0,0.28)",
+        glow: "0 0 30px rgba(212, 175, 55, 0.15)",
+      },
+      maxWidth: {
+        content: "1280px",
+      },
+      spacing: {
+        section: "140px",
+        "section-tablet": "100px",
+        "section-mobile": "72px",
+      },
+      keyframes: {
+        fadeIn: {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        slideUp: {
+          "0%": { opacity: "0", transform: "translateY(20px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        fadeIn: "fadeIn 400ms easeInOut",
+        slideUp: "slideUp 600ms easeInOut",
       },
     },
   },
