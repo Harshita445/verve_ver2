@@ -13,6 +13,8 @@ from app.core.config import get_settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.models import user  # noqa: E402,F401 - import registers the model on Base.metadata
 from app.models import practice_session  # noqa: E402,F401 - import registers the model on Base.metadata
+from app.models import refresh_token  # noqa: E402,F401 - import registers the model on Base.metadata
+from app.models import password_reset_token  # noqa: E402,F401 - import registers the model on Base.metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

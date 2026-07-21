@@ -1,39 +1,133 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.security import create_token
 from app.db.session import get_db
-from app.schemas.auth import LoginRequest, SignupRequest, TokenResponse
-from app.services.auth_service import AuthError, authenticate_user, create_user
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    LoginRequest,
+    MessageResponse,
+    ResetPasswordRequest,
+    SignupRequest,
+    TokenResponse,
+)
+from app.services.auth_service import (
+    AuthError,
+    authenticate_user,
+    create_password_reset_token,
+    create_user,
+    issue_refresh_token,
+    reset_password,
+    revoke_refresh_token,
+    rotate_refresh_token,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+settings = get_settings()
+
+REFRESH_COOKIE_NAME = "refresh_token"
+# Scoped to /api/v1/auth rather than the whole API — the cookie is only
+# ever read by the refresh/logout routes, so there's no reason for it to
+# go out on every request.
+REFRESH_COOKIE_PATH = "/api/v1/auth"
+
+
+def _set_refresh_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=token,
+        max_age=settings.refresh_token_expire_days * 24 * 60 * 60,
+        httponly=True,
+        secure=settings.environment == "production",
+        samesite="lax",
+        path=REFRESH_COOKIE_PATH,
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(key=REFRESH_COOKIE_NAME, path=REFRESH_COOKIE_PATH)
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> TokenResponse:
+def signup(
+    payload: SignupRequest, response: Response, db: Session = Depends(get_db)
+) -> TokenResponse:
     try:
         user = create_user(db, payload)
     except AuthError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
     access_token = create_token(str(user.id), "access")
+    _set_refresh_cookie(response, issue_refresh_token(db, user))
     return TokenResponse(access_token=access_token, user=user)  # type: ignore[arg-type]
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+def login(
+    payload: LoginRequest, response: Response, db: Session = Depends(get_db)
+) -> TokenResponse:
     try:
         user = authenticate_user(db, payload.email, payload.password)
     except AuthError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
     access_token = create_token(str(user.id), "access")
+    _set_refresh_cookie(response, issue_refresh_token(db, user))
+    return TokenResponse(access_token=access_token, user=user)  # type: ignore[arg-type]
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh(
+    request: Request, response: Response, db: Session = Depends(get_db)
+) -> TokenResponse:
+    raw_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    if raw_token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
+        )
+
+    try:
+        user, new_refresh_token = rotate_refresh_token(db, raw_token)
+    except AuthError as e:
+        _clear_refresh_cookie(response)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
+    access_token = create_token(str(user.id), "access")
+    _set_refresh_cookie(response, new_refresh_token)
     return TokenResponse(access_token=access_token, user=user)  # type: ignore[arg-type]
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout() -> None:
-    # Refresh-token cookie invalidation gets wired in once refresh tokens
-    # are added (Build Order step 2 follow-up) — this stub keeps the route
-    # contract stable for the frontend to build against now.
+def logout(
+    request: Request, response: Response, db: Session = Depends(get_db)
+) -> None:
+    raw_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    if raw_token is not None:
+        revoke_refresh_token(db, raw_token)
+    _clear_refresh_cookie(response)
     return None
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+def forgot_password(
+    payload: ForgotPasswordRequest, db: Session = Depends(get_db)
+) -> MessageResponse:
+    # Always return the same generic message whether or not the email is
+    # registered — a differing response is how account enumeration leaks.
+    create_password_reset_token(db, payload.email)
+    return MessageResponse(
+        message="If an account exists for that email, a reset link has been sent."
+    )
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+def reset_password_route(
+    payload: ResetPasswordRequest, db: Session = Depends(get_db)
+) -> MessageResponse:
+    try:
+        reset_password(db, payload.token, payload.new_password)
+    except AuthError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    return MessageResponse(message="Password has been reset. Please log in again.")

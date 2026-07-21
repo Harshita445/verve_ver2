@@ -182,31 +182,119 @@ scaffolded and hoped-for.
   returns `404`; `GET /sessions/{id}` with no token returns `401`; unknown
   UUID returns `404`.
 
-### Not built at all yet
+### Build Order Step 2 follow-up — DONE (refresh tokens + forgot/reset password)
 
-Everything past step 2 in the build order: frontend protected-route
+This was done ahead of Step 3 (dashboard shell) at the person's request —
+finishing auth properly before building more frontend on top of it.
+
+- `app/models/refresh_token.py` — `RefreshToken`: `id` (UUID, **equals the
+  JWT's own `jti` claim** — no separately generated id, so a presented
+  token can be looked up directly), `user_id` (FK), `expires_at`,
+  `revoked_at` (nullable), `created_at`.
+- `app/models/password_reset_token.py` — `PasswordResetToken`: `id`,
+  `user_id` (FK), `token_hash` (SHA-256 of the raw token — only the hash
+  is ever stored, same principle as password hashing), `expires_at`,
+  `used_at` (nullable), `created_at`.
+- `app/core/security.py` — `create_refresh_token(subject)` returns
+  `(token, jti, expires_at)`, a refresh JWT carrying a `jti` so it maps to
+  exactly one DB row. `generate_reset_token()` / `hash_reset_token()` for
+  the opaque, SHA-256-hashed password-reset token (fast hash is
+  intentional — the input is already a 32-byte random value, not a
+  human-chosen password, so there's no brute-force surface to slow down).
+- `app/services/auth_service.py` additions:
+  - `issue_refresh_token(db, user)` — creates the JWT + tracking row.
+  - `rotate_refresh_token(db, raw_token)` — refresh tokens are
+    **single-use**: validates, revokes the presented token, issues a new
+    pair. If the presented token was **already revoked**, that's treated
+    as theft/replay (a legitimate client only ever holds the latest one)
+    — every other live refresh token for that user gets revoked too,
+    forcing a fresh login on all sessions. Verified this actually happens
+    (see below).
+  - `revoke_refresh_token(db, raw_token)` — best-effort revoke for
+    logout; no-ops on an already-invalid token rather than erroring.
+  - `create_password_reset_token(db, email)` — returns `None` for an
+    unknown email; **the route layer never reflects that distinction back
+    to the caller** (always the same generic response), to avoid account
+    enumeration. No email provider is wired up yet, so in non-production
+    environments the raw token is logged server-side
+    (`logger.info("Password reset token for %s: %s", ...)`) so the flow
+    is testable end to end — this must be replaced by a real send once
+    step 15's email integration lands, never ship the log to production.
+  - `reset_password(db, raw_token, new_password)` — validates the
+    hashed token against `password_reset_tokens`, checks expiry (30 min
+    TTL) and single-use (`used_at`), updates the password, and **revokes
+    every refresh token for that user** as a side effect (a password
+    reset should log you out everywhere, including wherever an attacker
+    might have a session).
+- `app/api/v1/auth.py` — rewritten:
+  - `signup` / `login` now also call `issue_refresh_token` and set an
+    httpOnly, `sameSite=lax` `refresh_token` cookie, scoped to
+    `/api/v1/auth` only (path restricted — no reason for it to go out on
+    every request). `secure` is `True` only when `environment=production`
+    (so it still works over plain http in local dev).
+  - `POST /auth/refresh` — reads the cookie, rotates it, returns a new
+    access token + sets the new cookie. Clears the cookie and 401s on any
+    failure.
+  - `POST /auth/logout` — revokes the cookie's token server-side (not
+    just a client-side cookie clear) and clears the cookie. No longer a
+    stub.
+  - `POST /auth/forgot-password` — always 200 with the same generic
+    message regardless of whether the email exists.
+  - `POST /auth/reset-password` — 200 on success, 400 on invalid/expired/
+    already-used token.
+- `app/main.py` — added `logging.basicConfig` (INFO outside production,
+  WARNING in production) — needed for the dev-mode reset-token log above
+  to actually be emitted; without it Python's default root logger level
+  swallows INFO calls silently, which was caught during testing (the log
+  call was there but nothing appeared until this was added).
+- Alembic migration: `add refresh_tokens and password_reset_tokens
+  tables`. No custom enum types here, so no downgrade patch was needed
+  this time (see Section 6 for when it is).
+- **Verified end to end** against local Postgres, real server, real
+  requests: signup sets the cookie and `/users/me` works off the access
+  token; `/auth/refresh` rotates the cookie (confirmed the cookie value
+  actually changes) and returns a fresh access token; **reusing the
+  old, already-rotated cookie returns 401 "reuse detected" AND kills the
+  cookie that replaced it too** (whole-family revocation confirmed, not
+  just asserted); `/auth/refresh` with no cookie → 401; `/auth/logout`
+  → 204, and the same cookie then fails `/auth/refresh` with reuse-detected
+  (proving logout revokes server-side, not just a client cookie clear);
+  `/auth/forgot-password` returns the identical response body+status for
+  both a real and a nonexistent email; the dev-mode token appeared in the
+  server log; `/auth/reset-password` with that token → 200, immediately
+  reusing the same token → 400, a garbage token → 400; login with the old
+  password → 401, login with the new password → 200; and a refresh cookie
+  issued *before* the password reset was confirmed dead afterward
+  (session-wide revocation on reset, confirmed not just asserted).
+
+
+Everything past this point in the build order: frontend protected-route
 middleware/dashboard shell, real landing page and other UI screens, curtain
 animation, recording screen, storage/upload, background worker, Whisper
 integration, OpenAI feedback engine, rating service, rankings, challenges,
-goals, achievements, forgot/reset password, CI/CD. None of these have any
-code yet — don't assume partial implementations exist anywhere outside
-what's listed above.
+goals, achievements, CI/CD. None of these have any code yet — don't assume
+partial implementations exist anywhere outside what's listed above.
 
 ---
 
 ## 5. Exact next steps (pick up here)
 
 This is the build order from `verve-architecture.md` section 15, with steps
-1–2 struck through since they're done:
+1–2 struck through since they're done (refresh tokens + forgot/reset
+password were also finished, ahead of step 3, as a deliberate detour — see
+Section 4):
 
 1. ~~Repo scaffolding, health-check round trip~~ — **DONE, see Section 4**
 2. ~~`practice_sessions` table + `POST /sessions` + `GET /sessions/{id}`~~ —
    **DONE, see Section 4**
+   ~~Refresh token rotation + forgot/reset password~~ — **DONE, see
+   Section 4** (pulled forward from later in the roadmap)
 3. **[NEXT]** Protected route middleware + dashboard shell (empty states
-   only) on the frontend. Alternative starting point: finish auth properly
-   first (refresh token rotation, forgot/reset password) since right now
-   only short-lived access tokens exist with no refresh mechanism — pick
-   whichever the person you're working with prioritizes.
+   only) on the frontend. Auth is now solid enough to build this on top
+   of: the frontend's `lib/api/client.ts` still needs the actual
+   refresh-on-401 retry logic wired in (the backend endpoint exists now,
+   the frontend doesn't call it yet) and `middleware.ts` needs to check
+   for the access token before rendering `(app)` routes.
 4. Port the design system into real Tailwind/shadcn components: landing
    page (hero, training modes, how-it-works, sample feedback, progress,
    daily challenge, rankings, final CTA), training mode selection, setup
@@ -214,6 +302,7 @@ This is the build order from `verve-architecture.md` section 15, with steps
    wiring beyond what already exists.
 5. Curtain sequence (Framer Motion) wired to real session creation.
 6. Recording screen: `MediaRecorder` + wavesurfer.js live waveform,
+
    stop/pause/resume controls, local only (no upload yet).
 7. Storage integration: signed upload URL endpoint, direct-to-bucket
    upload, `/sessions/{id}/complete`.
@@ -276,6 +365,16 @@ strength of "it should work" — run it.
   both the `sessionmode` and `sessionstatus` enum types — copy that pattern
   for any future enum columns instead of relying on autogenerate's default
   downgrade body.
+- **`logger.info(...)` calls are silently swallowed without
+  `logging.basicConfig`.** Python's root logger defaults to `WARNING`, so
+  any `logging.getLogger(__name__).info(...)` call — like the dev-mode
+  password-reset-token log — produces nothing until something calls
+  `logging.basicConfig(level=logging.INFO)`. This is now done once in
+  `app/main.py` at import time (INFO outside production, WARNING in
+  production). If you add new INFO-level logging anywhere and it doesn't
+  show up, this is why — don't add a second `basicConfig` call elsewhere,
+  the first caller wins and duplicate calls are a no-op that can mask the
+  real issue if the import order ever changes.
 
 ---
 
