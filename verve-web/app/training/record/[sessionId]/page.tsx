@@ -36,9 +36,10 @@ export default function RecordingPage() {
     speak_seconds: number;
   } | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
-  const [phase, setPhase] = useState<"countdown" | "recording" | "completed" | "saving">("countdown");
+  const [phase, setPhase] = useState<"countdown" | "recording" | "saving">("countdown");
   const [countdownValue, setCountdownValue] = useState(3);
   const [redirecting, setRedirecting] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<"idle" | "uploading" | "saving">("idle");
 
   const recorder = useAudioRecorder();
   const stopRequestedRef = useRef(false);
@@ -88,7 +89,7 @@ export default function RecordingPage() {
     if (recorder.elapsedMs >= speakMs) {
       stopRequestedRef.current = true;
       recorder.stopRecording();
-      setPhase("completed");
+      setPhase("saving");
     }
   }, [phase, recorder.elapsedMs, speakMs, recorder]);
 
@@ -96,30 +97,38 @@ export default function RecordingPage() {
     if (stopRequestedRef.current) return;
     stopRequestedRef.current = true;
     recorder.stopRecording();
-    setPhase("completed");
+    setPhase("saving");
+    setUploadPhase("uploading");
   }, [recorder]);
 
-  const handleSaveAndReview = useCallback(async () => {
-    setPhase("saving");
-    try {
-      const blob = recorder.audioBlob;
-      if (blob) {
-        const file = new File([blob], `recording-${sessionId}.webm`, {
-          type: blob.type || "audio/webm",
+  useEffect(() => {
+    if (phase !== "saving" || recorder.state !== "stopped" || !recorder.audioBlob) return;
+    let aborted = false;
+    (async () => {
+      try {
+        setUploadPhase("uploading");
+        const file = new File([recorder.audioBlob!], `recording-${sessionId}.webm`, {
+          type: recorder.audioBlob!.type || "audio/webm",
         });
         await uploadAudio(sessionId, file);
+        if (aborted) return;
+        setUploadPhase("saving");
+        await updateSession(sessionId, {
+          status: "processing",
+          duration_seconds: Math.floor(recorder.elapsedMs / 1000),
+        });
+        if (aborted) return;
+      } catch {
+        // best-effort
       }
-      const elapsedSec = Math.floor(recorder.elapsedMs / 1000);
-      await updateSession(sessionId, {
-        status: "processing",
-        duration_seconds: elapsedSec,
-      });
-    } catch {
-      // best-effort — session is already saved with status
-    }
-    setRedirecting(true);
-    setTimeout(() => router.push(`/training/feedback/${sessionId}`), 800);
-  }, [recorder.audioBlob, recorder.elapsedMs, sessionId, router]);
+      if (!aborted) {
+        setRedirecting(true);
+        setUploadPhase("idle");
+        setTimeout(() => router.push(`/training/feedback/${sessionId}`), 800);
+      }
+    })();
+    return () => { aborted = true; };
+  }, [phase, recorder.state, recorder.audioBlob, recorder.elapsedMs, sessionId, router]);
 
   const formatTimerValue = (ms: number) => {
     const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -237,7 +246,7 @@ export default function RecordingPage() {
         <div className="flex flex-1 items-center justify-center">
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: phase === "recording" || phase === "completed" || phase === "saving" ? 1 : 0 }}
+            animate={{ opacity: phase === "recording" || phase === "saving" ? 1 : 0 }}
             transition={{ duration: 0.8, ease: "easeInOut" }}
             className="h-48 w-full max-w-3xl md:h-56 lg:h-64"
           >
@@ -305,55 +314,19 @@ export default function RecordingPage() {
               </motion.div>
             )}
 
-            {phase === "completed" && (
-              <motion.div
-                key="completed"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.4, ease: "easeInOut" }}
-                className="flex flex-col items-center gap-5"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success/10">
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#34D399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="2 9 6 13 16 3" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium text-text-primary">
-                    Recording Complete
-                  </span>
-                  <span className="text-sm text-text-muted tabular-nums">
-                    &middot; {elapsedTimer.min}:{elapsedTimer.sec}
-                  </span>
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => router.push("/dashboard")}
-                    className="inline-flex h-11 items-center rounded-full border border-border bg-transparent px-6 text-sm font-medium text-text-secondary transition-all duration-300 hover:border-text-muted"
-                  >
-                    Discard
-                  </button>
-                  <button
-                    onClick={handleSaveAndReview}
-                    className="inline-flex h-11 items-center rounded-full bg-gold px-6 text-sm font-semibold text-[#4A131C] transition-all duration-300 hover:translate-y-[-2px] hover:shadow-glow"
-                  >
-                    Save & Review
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
             {phase === "saving" && (
               <motion.div
                 key="saving"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
                 className="flex items-center gap-3"
               >
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
-                <span className="text-sm text-text-muted">Saving recording...</span>
+                <span className="text-sm text-text-muted">
+                  {uploadPhase === "uploading" ? "Uploading recording..." : "Saving recording..."}
+                </span>
               </motion.div>
             )}
           </AnimatePresence>

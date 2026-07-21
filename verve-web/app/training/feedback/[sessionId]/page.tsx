@@ -5,7 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
-import { getSessionResult, getSessionStatus, type SessionResult } from "@/lib/api/client";
+import {
+  getSessionResult,
+  updateSession,
+  type SessionResult,
+} from "@/lib/api/client";
 import RatingHero from "@/components/feedback/RatingHero";
 import PerformanceSummary from "@/components/feedback/PerformanceSummary";
 import SkillBreakdown from "@/components/feedback/SkillBreakdown";
@@ -16,29 +20,41 @@ import ReflectionSection from "@/components/feedback/ReflectionSection";
 import ProgressComparison from "@/components/feedback/ProgressComparison";
 import NextChallenge from "@/components/feedback/NextChallenge";
 
+const STATUS_MESSAGES: Record<string, string> = {
+  uploading: "Uploading your recording...",
+  processing: "Processing your recording...",
+  transcribing: "Transcribing your speech...",
+  analyzing: "Analyzing communication patterns...",
+  generating: "Generating feedback...",
+};
+
+const STATUS_SUBTITLES: Record<string, string> = {
+  uploading: "Transferring audio to secure storage.",
+  processing: "Preparing audio for transcription.",
+  transcribing: "Converting speech to text using Whisper.",
+  analyzing: "Evaluating structure, relevance, evidence, and delivery.",
+  generating: "Compiling detailed feedback and skill scores.",
+};
+
 export default function FeedbackPage() {
   const params = useParams();
   const router = useRouter();
   const sessionId = params.sessionId as string;
 
-  const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<SessionResult | null>(null);
-  const [processingStatus, setProcessingStatus] = useState<string | null>(null);
+  const [processingStatus, setProcessingStatus] = useState<string>("loading");
+  const [retrying, setRetrying] = useState(false);
 
   const fetchResult = useCallback(() => {
     getSessionResult(sessionId)
       .then((res) => {
         setResult(res);
         setProcessingStatus(res.status);
-        if (res.status === "completed") {
-          setLoading(false);
-        }
       })
       .catch(() => {
-        setLoading(false);
-        router.push("/dashboard");
+        setProcessingStatus("failed");
       });
-  }, [sessionId, router]);
+  }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -47,7 +63,19 @@ export default function FeedbackPage() {
     return () => clearInterval(interval);
   }, [sessionId, fetchResult]);
 
-  if (loading) {
+  const handleRetry = useCallback(async () => {
+    setRetrying(true);
+    try {
+      await updateSession(sessionId, { status: "processing" });
+      setProcessingStatus("processing");
+    } catch {
+      setProcessingStatus("failed");
+    }
+    setRetrying(false);
+  }, [sessionId]);
+
+  // ---- Loading (initial fetch not yet completed) ----
+  if (processingStatus === "loading") {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
@@ -58,24 +86,74 @@ export default function FeedbackPage() {
     );
   }
 
-  if (!result || !result.feedback) {
-    const statusLabel = processingStatus
-      ? processingStatus.charAt(0).toUpperCase() + processingStatus.slice(1)
-      : "Processing";
+  // ---- Failed state ----
+  if (processingStatus === "failed") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="max-w-md text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-error/20 bg-error/10">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="10" cy="10" r="9" />
+              <line x1="10" y1="6" x2="10" y2="11" />
+              <circle cx="10" cy="14" r="1" fill="#EF4444" />
+            </svg>
+          </div>
+          <p className="text-sm font-medium uppercase tracking-[0.2em] text-error/70">
+            Evaluation Failed
+          </p>
+          <p className="mt-2 text-text-muted">
+            The evaluation pipeline encountered an error processing your recording.
+          </p>
+          <div className="mt-8 flex items-center justify-center gap-4">
+            <button
+              onClick={handleRetry}
+              disabled={retrying}
+              className="inline-flex h-11 items-center rounded-full bg-gold px-6 text-sm font-semibold text-burgundy-dark transition-all duration-300 hover:shadow-glow disabled:opacity-50"
+            >
+              {retrying ? "Retrying..." : "Retry Evaluation"}
+            </button>
+            <Link
+              href="/dashboard"
+              className="inline-flex h-11 items-center rounded-full border border-border bg-transparent px-6 text-sm font-medium text-text-secondary transition-all duration-300 hover:border-text-muted"
+            >
+              Back to Dashboard
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // ---- Processing (pipeline still running) ----
+  if (processingStatus !== "completed") {
+    const message = STATUS_MESSAGES[processingStatus] || "Processing your recording...";
+    const subtitle = STATUS_SUBTITLES[processingStatus] || "";
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
           <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
-          <p className="text-sm text-text-muted">{statusLabel} your recording...</p>
-          <p className="mt-2 text-xs text-text-subtle">
-            Transcribing speech, analyzing communication, and generating feedback.
-          </p>
+          <p className="text-sm font-medium text-text-primary">{message}</p>
+          {subtitle && (
+            <p className="mt-2 text-xs text-text-subtle">{subtitle}</p>
+          )}
           <Link
             href="/dashboard"
             className="mt-8 inline-flex h-11 items-center rounded-full bg-gold px-6 text-sm font-semibold text-burgundy-dark"
           >
             Back to Dashboard
           </Link>
+        </div>
+      </main>
+    );
+  }
+
+  // ---- Completed ----
+  if (!result?.feedback) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
+          <p className="text-sm text-text-muted">Loading feedback...</p>
         </div>
       </main>
     );
