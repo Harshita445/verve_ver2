@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.practice_session import SessionMode, SessionStatus
 
@@ -9,6 +9,14 @@ from app.models.practice_session import SessionMode, SessionStatus
 class PracticeSessionCreate(BaseModel):
     mode: SessionMode
     prompt_text: str | None = None
+    prep_seconds: int = Field(default=30, ge=10, le=300)
+    speak_seconds: int = Field(default=120, ge=30, le=600)
+
+
+class PracticeSessionUpdate(BaseModel):
+    status: SessionStatus | None = None
+    duration_seconds: int | None = None
+    audio_url: str | None = None
 
 
 class PracticeSessionRead(BaseModel):
@@ -16,6 +24,8 @@ class PracticeSessionRead(BaseModel):
     user_id: uuid.UUID
     mode: SessionMode
     prompt_text: str | None
+    prep_seconds: int
+    speak_seconds: int
     status: SessionStatus
     duration_seconds: int | None
     audio_url: str | None
@@ -24,3 +34,8 @@ class PracticeSessionRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PracticeSessionListRead(BaseModel):
+    sessions: list[PracticeSessionRead]
+    total: int

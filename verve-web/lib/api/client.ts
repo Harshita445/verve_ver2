@@ -198,3 +198,61 @@ export function updateOnboarding(payload: OnboardingUpdatePayload) {
     body: payload,
   });
 }
+
+export type SessionMode = "impromptu" | "debate" | "interview" | "storytelling";
+export type SessionStatus = "pending" | "recording" | "processing" | "complete" | "failed";
+
+export type PracticeSession = {
+  id: string;
+  user_id: string;
+  mode: SessionMode;
+  prompt_text: string | null;
+  prep_seconds: number;
+  speak_seconds: number;
+  status: SessionStatus;
+  duration_seconds: number | null;
+  audio_url: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
+export type SessionListResponse = {
+  sessions: PracticeSession[];
+  total: number;
+};
+
+export type SessionCreatePayload = {
+  mode: SessionMode;
+  prompt_text?: string | null;
+  prep_seconds?: number;
+  speak_seconds?: number;
+};
+
+export type SessionUpdatePayload = {
+  status?: SessionStatus;
+  duration_seconds?: number;
+  audio_url?: string;
+};
+
+export function createSession(payload: SessionCreatePayload) {
+  return apiFetch<PracticeSession>("/api/v1/sessions", {
+    method: "POST",
+    body: payload,
+    skipAuthRetry: true,
+  });
+}
+
+export function getSessions(skip = 0, limit = 20) {
+  return apiFetch<SessionListResponse>(`/api/v1/sessions?skip=${skip}&limit=${limit}`);
+}
+
+export function getSession(sessionId: string) {
+  return apiFetch<PracticeSession>(`/api/v1/sessions/${sessionId}`);
+}
+
+export function updateSession(sessionId: string, payload: SessionUpdatePayload) {
+  return apiFetch<PracticeSession>(`/api/v1/sessions/${sessionId}`, {
+    method: "PATCH",
+    body: payload,
+  });
+}

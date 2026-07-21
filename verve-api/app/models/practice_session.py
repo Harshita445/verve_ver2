@@ -41,6 +41,8 @@ class PracticeSession(Base):
         SAEnum(SessionMode, name="sessionmode"), nullable=False
     )
     prompt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    prep_seconds: Mapped[int] = mapped_column(Integer, default=30)
+    speak_seconds: Mapped[int] = mapped_column(Integer, default=120)
     status: Mapped[SessionStatus] = mapped_column(
         SAEnum(SessionStatus, name="sessionstatus"),
         nullable=False,
