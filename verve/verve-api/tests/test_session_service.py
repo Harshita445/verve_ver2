@@ -32,6 +32,52 @@ class TestCreateSession:
         assert session.prep_seconds == 30
         assert session.speak_seconds == 120
 
+    def test_auto_select_prompt(self, db: Session, test_user: User):
+        payload = PracticeSessionCreate(mode=SessionMode.freestyle)
+        session = create_session(db, test_user, payload)
+        assert session.prompt_text is not None
+        assert len(session.prompt_text) > 0
+        assert session.prompt_format is not None
+
+    def test_explicit_text_preserved(self, db: Session, test_user: User):
+        payload = PracticeSessionCreate(mode=SessionMode.debate, prompt_text="Custom text")
+        session = create_session(db, test_user, payload)
+        assert session.prompt_text == "Custom text"
+        assert session.debate_side is not None
+
+    def test_debate_side_assigned(self, db: Session, test_user: User):
+        for _ in range(20):
+            payload = PracticeSessionCreate(mode=SessionMode.debate)
+            session = create_session(db, test_user, payload)
+            assert session.debate_side is not None
+            assert session.debate_side in ("for", "against")
+
+    def test_non_debate_no_side(self, db: Session, test_user: User):
+        for mode in (SessionMode.freestyle, SessionMode.interview, SessionMode.storytelling):
+            payload = PracticeSessionCreate(mode=mode)
+            session = create_session(db, test_user, payload)
+            assert session.debate_side is None
+
+    def test_no_repeat_consecutive(self, db: Session, test_user: User):
+        texts: set[str] = set()
+        for _ in range(10):
+            payload = PracticeSessionCreate(mode=SessionMode.freestyle, prompt_style="one_word")
+            session = create_session(db, test_user, payload)
+            assert session.prompt_text not in texts, f"Repeat prompt: {session.prompt_text}"
+            texts.add(session.prompt_text)
+
+    def test_one_word_style(self, db: Session, test_user: User):
+        for _ in range(10):
+            payload = PracticeSessionCreate(mode=SessionMode.freestyle, prompt_style="one_word")
+            session = create_session(db, test_user, payload)
+            assert session.prompt_format == "one_word"
+
+    def test_full_style(self, db: Session, test_user: User):
+        for _ in range(10):
+            payload = PracticeSessionCreate(mode=SessionMode.freestyle, prompt_style="full")
+            session = create_session(db, test_user, payload)
+            assert session.prompt_format != "one_word"
+
 
 class TestGetSessionForUser:
     def test_own_session(self, db: Session, test_user: User, test_session: PracticeSession):

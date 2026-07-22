@@ -14,15 +14,10 @@ const modeLabels: Record<SessionMode, string> = {
   storytelling: "Storytelling",
 };
 
-const FREESTYLE_STYLES = [
-  { id: "one_word" as const, label: "One Word", desc: "Speak spontaneously from a single word" },
-  { id: "full" as const, label: "Full Prompt", desc: "Respond to a complete question or scenario" },
-  { id: "absurd_pitch" as const, label: "Absurd Pitch", desc: "Sell an outrageous product or idea" },
-  { id: "outsider_pov" as const, label: "Outsider POV", desc: "Explain something from an alien perspective" },
-  { id: "sensory_narration" as const, label: "Sensory Narration", desc: "Describe through senses or impossible subjects" },
-  { id: "mock_ceremony" as const, label: "Mock Ceremony", desc: "Deliver a speech for a made-up occasion" },
-  { id: "constraint" as const, label: "Constraint", desc: "Speak under a creative rule or limitation" },
-  { id: "association_chain" as const, label: "Association Chain", desc: "Free-associate from a starting word" },
+const FREESTYLE_STYLES: { id: "one_word" | "full" | null; label: string; desc: string }[] = [
+  { id: null, label: "Surprise Me", desc: "Random pick from all prompt styles" },
+  { id: "one_word", label: "One Word", desc: "Speak spontaneously from a single word" },
+  { id: "full", label: "Full Prompt", desc: "Respond to a complete question or scenario" },
 ];
 
 const prepOptions = [0, 15, 30, 60, 90, 120];
@@ -35,7 +30,7 @@ export default function SetupPage() {
 
   const [prepSeconds, setPrepSeconds] = useState(30);
   const [speakSeconds, setSpeakSeconds] = useState(120);
-  const [promptStyle, setPromptStyle] = useState<string | null>(null);
+  const [promptStyle, setPromptStyle] = useState<"one_word" | "full" | null>(null);
   const [hintsEnabled, setHintsEnabled] = useState(false);
   const [scratchpadEnabled, setScratchpadEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -174,7 +169,7 @@ export default function SetupPage() {
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {FREESTYLE_STYLES.map((style) => (
                   <button
-                    key={style.id}
+                    key={style.id ?? "surprise"}
                     onClick={() => setPromptStyle(style.id)}
                     className={`rounded-lg border p-3 text-left text-sm transition-all duration-200 ${
                       promptStyle === style.id

@@ -8,15 +8,12 @@ import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { getSession, updateSession, uploadAudio } from "@/lib/api/client";
 import Waveform from "@/components/recording/Waveform";
 import PromptCard from "@/components/recording/PromptCard";
+import LiveHints from "@/components/recording/LiveHints";
 import MicPermission from "@/components/recording/MicPermission";
 import Skeleton from "@/components/shared/Skeleton";
 
-const FALLBACK_PROMPTS: Record<string, string> = {
-  freestyle: "Describe a time you had to make a difficult decision with limited information.",
-  debate: "Social media does more harm than good. Defend or oppose this statement.",
-  interview: "Tell me about a time you had to lead a team through a difficult situation.",
-  storytelling: "Recall a moment when you felt completely out of your depth. What happened?",
-};
+const FALLBACK_PROMPT =
+  "Describe a time you had to make a difficult decision with limited information.";
 
 function formatTime(ms: number): string {
   const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -182,7 +179,7 @@ export default function RecordingPage() {
   }
 
   const mode = sessionData?.mode ?? "freestyle";
-  const prompt = sessionData?.prompt_text ?? FALLBACK_PROMPTS[mode] ?? FALLBACK_PROMPTS.freestyle;
+  const prompt = sessionData?.prompt_text ?? FALLBACK_PROMPT;
   const prepSeconds = sessionData?.prep_seconds ?? 30;
   const speakSeconds = sessionData?.speak_seconds ?? 120;
   const promptFormat = sessionData?.prompt_format;
@@ -198,6 +195,13 @@ export default function RecordingPage() {
   return (
     <main className="relative flex min-h-screen flex-col bg-background">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_55%_45%_at_50%_35%,rgba(212,175,55,0.06),transparent_70%)]" />
+
+      <LiveHints
+        enabled={hintsEnabled}
+        speakSeconds={speakSeconds}
+        isRecording={isRecording && !isPaused}
+        elapsedMs={recorder.elapsedMs}
+      />
 
       <AnimatePresence>
         {phase === "countdown" && (
@@ -260,6 +264,17 @@ export default function RecordingPage() {
                     <span className="ml-1 text-xs font-medium text-warning">Paused</span>
                   )}
                 </div>
+                {debateSide && !isPaused && (
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                      debateSide === "for"
+                        ? "border-green-500/30 bg-green-500/10 text-green-400"
+                        : "border-red-500/30 bg-red-500/10 text-red-400"
+                    }`}>
+                      {debateSide === "for" ? "FOR" : "AGAINST"}
+                    </span>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

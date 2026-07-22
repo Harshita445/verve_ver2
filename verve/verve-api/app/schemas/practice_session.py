@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -9,7 +10,8 @@ from app.models.practice_session import SessionMode, SessionStatus
 class PracticeSessionCreate(BaseModel):
     mode: SessionMode
     prompt_text: str | None = None
-    prompt_style: str | None = None
+    """When omitted, the server auto-selects a random prompt from PROMPT_BANK."""
+    prompt_style: Literal["one_word", "full"] | None = None
     hints_enabled: bool = False
     scratchpad_enabled: bool = False
     prep_seconds: int = Field(default=30, ge=0, le=300)

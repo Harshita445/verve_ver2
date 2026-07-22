@@ -20,8 +20,12 @@ export default function PromptCard({ mode, prompt, promptFormat, debateSide, pre
           Intermediate
         </span>
         {debateSide && (
-          <span className="rounded-full border border-gold/20 bg-gold/5 px-3 py-1 text-xs font-medium uppercase text-gold">
-            {debateSide}
+          <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+            debateSide === "for"
+              ? "border-green-500/30 bg-green-500/10 text-green-400"
+              : "border-red-500/30 bg-red-500/10 text-red-400"
+          }`}>
+            Arguing {debateSide === "for" ? "FOR" : "AGAINST"}
           </span>
         )}
         {promptFormat && !debateSide && (

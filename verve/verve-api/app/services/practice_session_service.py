@@ -1,3 +1,4 @@
+import random
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -18,27 +19,101 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _select_prompt(
+    db: Session, user: User, mode, style: str | None
+) -> tuple[str, str | None]:
+    """Pick a prompt from PROMPT_BANK with no-repeat logic.
+
+    Returns (prompt_text, prompt_format).
+    """
+    from app.data.prompts import PROMPT_BANK
+
+    pool = list(PROMPT_BANK.get(mode, []))
+
+    # Filter by style if specified
+    if style == "one_word":
+        pool = [e for e in pool if e.get("format") == "one_word"]
+    elif style == "full":
+        pool = [e for e in pool if e.get("format") != "one_word"]
+
+    if not pool:
+        pool = list(PROMPT_BANK.get(mode, []))
+        if style == "one_word":
+            pool = [e for e in pool if e.get("format") == "one_word"]
+        elif style == "full":
+            pool = [e for e in pool if e.get("format") != "one_word"]
+
+    # Gather recent texts and formats to exclude
+    recent = (
+        db.query(PracticeSession.prompt_text, PracticeSession.prompt_format)
+        .filter(
+            PracticeSession.user_id == user.id,
+            PracticeSession.mode == mode,
+            PracticeSession.prompt_text.isnot(None),
+        )
+        .order_by(desc(PracticeSession.created_at))
+        .limit(8)
+        .all()
+    )
+    excluded_texts: set[str] = {r.prompt_text for r in recent if r.prompt_text}
+    recent_formats = [r.prompt_format for r in recent if r.prompt_format]
+    # Exclude the last 2 distinct formats
+    seen_formats: set[str] = set()
+    excluded_formats: set[str] = set()
+    for f in recent_formats:
+        if f not in seen_formats:
+            seen_formats.add(f)
+            if len(seen_formats) <= 2:
+                excluded_formats.add(f)
+
+    # Build candidate pool: exclude texts and formats
+    candidates = [
+        e for e in pool
+        if e["text"] not in excluded_texts
+        and e.get("format") not in excluded_formats
+    ]
+
+    # Fall back to text-exclusion only
+    if not candidates:
+        candidates = [e for e in pool if e["text"] not in excluded_texts]
+
+    # Fall back to full pool
+    if not candidates:
+        candidates = pool
+
+    entry = random.choice(candidates)
+    return entry["text"], entry.get("format")
+
+
 def create_session(
     db: Session, user: User, payload: PracticeSessionCreate
 ) -> PracticeSession:
     debate_side: str | None = None
     if payload.mode.value == "debate":
-        import random
         debate_side = random.choice(["for", "against"])
 
+    prompt_text: str | None = payload.prompt_text
     prompt_format: str | None = None
-    if payload.prompt_style:
+
+    if prompt_text is not None:
+        # Explicit text provided — look up its format from the bank
         from app.data.prompts import PROMPT_BANK
+
         bank = PROMPT_BANK.get(payload.mode, [])
         for entry in bank:
-            if entry["text"] == payload.prompt_text:
+            if entry["text"] == prompt_text:
                 prompt_format = entry.get("format")
                 break
+    else:
+        # Auto-select from bank
+        prompt_text, prompt_format = _select_prompt(
+            db, user, payload.mode, payload.prompt_style
+        )
 
     session = PracticeSession(
         user_id=user.id,
         mode=payload.mode,
-        prompt_text=payload.prompt_text,
+        prompt_text=prompt_text,
         prompt_format=prompt_format,
         debate_side=debate_side,
         hints_enabled=payload.hints_enabled,

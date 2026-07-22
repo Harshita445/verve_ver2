@@ -99,9 +99,13 @@ export default function CurtainPage() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.4, duration: 0.3 }}
-                className="mt-4 inline-block rounded-full border border-gold/20 bg-gold/5 px-4 py-1.5 text-sm font-medium text-gold"
+                className={`mt-4 inline-block rounded-full border px-4 py-1.5 text-sm font-bold uppercase tracking-wider ${
+                  debateSide === "for"
+                    ? "border-green-500/30 bg-green-500/10 text-green-400"
+                    : "border-red-500/30 bg-red-500/10 text-red-400"
+                }`}
               >
-                You are arguing <span className="uppercase">{debateSide}</span> this position
+                You are arguing {debateSide === "for" ? "FOR" : "AGAINST"} this position
               </motion.p>
             )}
 
