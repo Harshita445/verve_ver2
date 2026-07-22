@@ -1,0 +1,394 @@
+In the verve-api FastAPI backend, I want practice sessions to get a randomly assigned prompt at creation time, similar to how the daily challenge already works.
+
+Create a new file verve-api/app/data/prompts.py containing a single dict PROMPT_BANK: dict[SessionMode, list[str]] with keys impromptu, debate, interview, storytelling, each mapping to a list of prompt strings. Seed it with the 5 existing prompts per mode currently hardcoded in app/api/v1/challenges.py's DAILY_PROMPTS.
+Update app/api/v1/challenges.py to import PROMPT_BANK from app/data/prompts.py instead of defining DAILY_PROMPTS inline, so there's a single source of truth.
+In app/services/practice_session_service.py, update create_session() so that if payload.prompt_text is not provided, it randomly selects a prompt from PROMPT_BANK[payload.mode] using random.choice() and stores that instead of leaving prompt_text null.
+Make sure SessionMode enum values line up with the dict keys exactly.
+Don't change the daily challenge's deterministic date-hashing behavior — only regular session creation should get a random pick.
+Show me the full diff/final contents of all changed/created files.
+
+
+# Verve — Prompt System, Debate Sides & Live Hints: Implementation Brief
+
+Paste this entire document to your coding LLM (e.g. Claude Code) working in the
+`verve_ver2-main` repo. It is self-contained: all prompt data, schema changes,
+and flow logic are specified below. Execute the phases **in order** — later
+phases depend on earlier ones. After each phase, show the full diff/contents
+of every changed or created file before moving to the next phase.
+
+---
+
+## 0. Context — what exists today (verify before starting)
+
+- `verve-web/app/training/page.tsx` → mode selection
+- `verve-web/app/training/setup/page.tsx` → prep/speak time selection, calls `createSession`
+- `verve-api/app/services/practice_session_service.py` → `create_session()` currently just stores whatever `prompt_text` is passed (usually `None`)
+- `verve-api/app/api/v1/challenges.py` → has a `DAILY_PROMPTS` dict (5 prompts/mode) used only by the daily-challenge endpoint
+- `verve-web/app/training/curtain/[sessionId]/page.tsx` → prep countdown is **hardcoded to 5 seconds**, ignoring the user's chosen `prep_seconds` — **this is a bug, fix it in Phase 5**
+- `verve-web/app/training/record/[sessionId]/page.tsx` → shows prompt, records full audio in one blob, uploads at the end; has a `FALLBACK_PROMPTS` dict used only when `prompt_text` is null
+- `verve-api/app/workers/tasks.py` → fully batch pipeline: download audio → Whisper transcription → LLM feedback (`feedback_engine.py`) → rating update. **No real-time/streaming infrastructure exists anywhere in the repo today.**
+
+## 1. Target end-to-end user flow (what we're building toward)
+
+1. **Select mode** (`/training`) — impromptu / debate / interview / storytelling.
+2. **Setup** (`/training/setup`) — prep time, speak time, plus mode-specific options:
+   - **Impromptu only**: prompt style — "One Word" / "Full Prompt" / "Surprise Me" (default: Surprise Me = random pick each time).
+   - **Debate only**: nothing to choose about the side — side assignment is always random and revealed after prep starts (see step 4). No hint toggle for debate specifically; hints toggle (below) applies to all modes.
+   - **All modes**: "Live hints" toggle, default **off** — "Get gentle real-time nudges (pace, filler words, time) while you speak."
+3. **Session created** — backend selects a prompt from `PROMPT_BANK` (never null anymore), respecting impromptu style and avoiding recent repeats for that user; for debate, also randomly assigns a side (`for`/`against`).
+4. **Curtain / prep screen** — real countdown using the user's actual `prep_seconds` (bug fix). Prompt is shown. If mode is `debate`, a clear badge shows the assigned side ("You are arguing FOR this motion" / "AGAINST") alongside the prompt, so the user preps for the side they were given, not the side they'd pick.
+5. **Recording** — countdown to "Go," then recording starts. If `hints_enabled` is true, a lightweight live-hints layer runs client-side (see Phase 6) and surfaces at most one small, non-blocking hint at a time. Recording behaves exactly as today otherwise.
+6. **Upload → async processing → feedback** — unchanged. Deep content analysis (structure, argument quality, relevance) stays exclusively in the existing post-session LLM pipeline; live hints never attempt this.
+
+---
+
+## PHASE 1 — Prompt data layer
+
+Create `verve-api/app/data/prompts.py`. Populate it with **exactly** the data below — do not paraphrase, shorten, or drop entries.
+
+```python
+# ── IMPROMPTU ──────────────────────────────────────────────
+IMPROMPTU_ONE_WORD: list[str] = [
+    "Trust", "Silence", "Detour", "Legacy", "Grit", "Reinvention", "Enough",
+    "Drift", "Threshold", "Solitude", "Friction", "Restraint", "Departure",
+    "Curiosity", "Ambition", "Forgiveness", "Weight", "Static", "Bloom",
+    "Unravel", "Ration", "Echo", "Tangent", "Ceiling", "Undo",
+]
+
+IMPROMPTU_FULL: list[dict] = [
+    {"text": "What does \"enough\" mean to you, practically?", "format": "reflection"},
+    {"text": "When has doing nothing been the right choice?", "format": "reflection"},
+    {"text": "Convince the room that boredom is underrated.", "format": "persuasion"},
+    {"text": "Make the case that your least favorite season is secretly the best one.", "format": "persuasion"},
+    {"text": "You wake up fluent in a language you never studied — which one, and what do you do first?", "format": "hypothetical"},
+    {"text": "A stranger hands you a key with no explanation. What do you do?", "format": "hypothetical"},
+    {"text": "Give the toast at a wedding for two people who've never met before today.", "format": "roleplay"},
+    {"text": "You're a tour guide for a city that no longer exists.", "format": "roleplay"},
+    {"text": "React to this: \"Most advice is just someone else's fear in disguise.\"", "format": "reactive"},
+    {"text": "React to this: \"Nostalgia is a lie we tell ourselves on purpose.\"", "format": "reactive"},
+    {"text": "Defend a conspiracy theory about something completely mundane, like toast.", "format": "playful"},
+    {"text": "You have to replace the word \"yes\" with something else for a day — what and why?", "format": "playful"},
+    {"text": "You have 60 seconds to talk your way out of a parking ticket you deserve.", "format": "scenario"},
+    {"text": "Explain your job to a medieval peasant.", "format": "scenario"},
+    {"text": "What's a rule you follow that nobody enforces?", "format": "personal"},
+    {"text": "Describe the last time you changed a habit without meaning to.", "format": "personal"},
+    {"text": "Pick an object within arm's reach and argue it's the most important invention in history.", "format": "object"},
+    {"text": "Describe your morning as if narrating a nature documentary.", "format": "object"},
+    {"text": "Is it better to be interesting or to be understood?", "format": "values"},
+    {"text": "Would you rather always know the ending or never know it?", "format": "values"},
+    {"text": "Give advice to yourself exactly one year ago.", "format": "time"},
+    {"text": "Describe a version of today that never happened.", "format": "time"},
+    {"text": "What's something your friend group believes that outsiders would find strange?", "format": "community"},
+    {"text": "Pitch a holiday that doesn't exist yet.", "format": "community"},
+    {"text": "What's the last thing you'd want someone to remember about how you spoke, not what you said?", "format": "closing"},
+]
+
+# ── DEBATE ─────────────────────────────────────────────────
+DEBATE: list[dict] = [
+    {"text": "Artificial intelligence should be regulated like pharmaceuticals.", "format": "classic_resolution"},
+    {"text": "Nuclear energy is the most responsible path to a low-carbon future.", "format": "classic_resolution"},
+    {"text": "College degrees are becoming less valuable than practical skills training.", "format": "classic_resolution"},
+    {"text": "Cities should prioritize pedestrians over cars.", "format": "classic_resolution"},
+    {"text": "Autonomous vehicles should be mandatory once proven safer than humans.", "format": "classic_resolution"},
+    {"text": "Cash should be phased out entirely.", "format": "classic_resolution"},
+    {"text": "Zoos should be phased out in favor of sanctuaries.", "format": "classic_resolution"},
+    {"text": "A four-day work week should be the global standard.", "format": "classic_resolution"},
+    {"text": "Space belongs to no single nation and should stay unregulated.", "format": "classic_resolution"},
+    {"text": "Reparations should be a formal part of addressing historical injustice.", "format": "classic_resolution"},
+    {"text": "Talent or discipline — which matters more for long-term success?", "format": "comparison"},
+    {"text": "Privacy or convenience — which should tech companies default to?", "format": "comparison"},
+    {"text": "A charismatic bad leader or a boring competent one — who's worse for an organization?", "format": "comparison"},
+    {"text": "Individual freedom or collective safety — which should break ties in policy?", "format": "comparison"},
+    {"text": "Is it worse to be forgotten or to be misremembered?", "format": "comparison"},
+    {"text": "Should societies optimize for equality of outcome or equality of opportunity?", "format": "comparison"},
+    {"text": "Is competition or cooperation the better driver of innovation?", "format": "comparison"},
+    {"text": "Should art be judged by intention or by impact?", "format": "comparison"},
+    {"text": "Is it better to raise children with more rules or more freedom?", "format": "comparison"},
+    {"text": "Should a company prioritize its employees or its customers when the two conflict?", "format": "comparison"},
+    {"text": "Is it ethical to lie to protect someone's feelings?", "format": "ethical_dilemma"},
+    {"text": "Should a self-driving car be programmed to sacrifice its passenger to save five pedestrians?", "format": "ethical_dilemma"},
+    {"text": "Is it wrong to profit from someone else's bad decision, even if it's legal?", "format": "ethical_dilemma"},
+    {"text": "Should employees be obligated to report a friend's misconduct at work?", "format": "ethical_dilemma"},
+    {"text": "Is it fair to judge historical figures by today's moral standards?", "format": "ethical_dilemma"},
+    {"text": "Should parents be allowed to choose their child's traits through genetic editing?", "format": "ethical_dilemma"},
+    {"text": "Is silence in the face of injustice a form of complicity?", "format": "ethical_dilemma"},
+    {"text": "Should a person be allowed to profit from a mistake someone else made public?", "format": "ethical_dilemma"},
+    {"text": "Is it ethical to use AI to generate art in someone's exact style?", "format": "ethical_dilemma"},
+    {"text": "Should whistleblowers be protected even if their disclosure causes short-term harm?", "format": "ethical_dilemma"},
+    {"text": "Argue that procrastination can be a legitimate productivity strategy.", "format": "steelman"},
+    {"text": "Argue that reality TV has genuine cultural value.", "format": "steelman"},
+    {"text": "Argue that some lies are a civic good.", "format": "steelman"},
+    {"text": "Argue that failure should be rewarded more than success.", "format": "steelman"},
+    {"text": "Argue that tradition should outweigh progress in at least one domain.", "format": "steelman"},
+    {"text": "Argue that anonymity online does more good than harm.", "format": "steelman"},
+    {"text": "Argue that some jobs shouldn't be automated even if AI could do them better.", "format": "steelman"},
+    {"text": "Argue that being disliked is sometimes a sign of good leadership.", "format": "steelman"},
+    {"text": "Argue that nostalgia is a productive emotion, not a wasteful one.", "format": "steelman"},
+    {"text": "Argue that competition, not empathy, builds the strongest teams.", "format": "steelman"},
+    {"text": "Should tipping be replaced with fair built-in wages?", "format": "everyday"},
+    {"text": "Is it rude to check your phone during a conversation, or just normal now?", "format": "everyday"},
+    {"text": "Should remote work be a legal right, not just a company perk?", "format": "everyday"},
+    {"text": "Is it better to live near family or move for opportunity?", "format": "everyday"},
+    {"text": "Should schools eliminate homework entirely?", "format": "everyday"},
+    {"text": "Is it okay to ghost someone you're no longer interested in?", "format": "everyday"},
+    {"text": "Should social media accounts require ID verification?", "format": "everyday"},
+    {"text": "Is it better to rent forever or buy property, given today's economy?", "format": "everyday"},
+    {"text": "Should companies be required to disclose salary ranges upfront?", "format": "everyday"},
+    {"text": "Is it ethical to use a fake name on a first date app profile for safety?", "format": "everyday"},
+]
+
+# ── INTERVIEW ──────────────────────────────────────────────
+INTERVIEW: list[dict] = [
+    {"text": "Tell me about a time you had to give difficult feedback to a peer.", "format": "behavioral"},
+    {"text": "Describe a project that failed despite your best effort.", "format": "behavioral"},
+    {"text": "Tell me about a time you influenced someone without formal authority.", "format": "behavioral"},
+    {"text": "Describe a time you rebuilt trust after it was broken.", "format": "behavioral"},
+    {"text": "Tell me about a time you disagreed with your manager's decision.", "format": "behavioral"},
+    {"text": "Describe a time you delegated something and it didn't go as planned.", "format": "behavioral"},
+    {"text": "Tell me about a time you had to recover from losing a client's trust.", "format": "behavioral"},
+    {"text": "Describe a time your team missed a deadline.", "format": "behavioral"},
+    {"text": "Tell me about a time you turned a skeptic into a supporter.", "format": "behavioral"},
+    {"text": "Describe a time you caught a mistake before it became a bigger problem.", "format": "behavioral"},
+    {"text": "What would you do if you strongly disagreed with a decision you had to implement anyway?", "format": "situational"},
+    {"text": "How would you handle a coworker taking credit for your idea in a meeting?", "format": "situational"},
+    {"text": "What would you do if you were given a deadline you knew was unrealistic?", "format": "situational"},
+    {"text": "How would you approach a project with no clear owner?", "format": "situational"},
+    {"text": "What would you do if a client asked you to do something you found unethical?", "format": "situational"},
+    {"text": "How would you handle discovering a mistake in a report after it's already been sent?", "format": "situational"},
+    {"text": "What would you do if two team members refused to work together?", "format": "situational"},
+    {"text": "How would you respond if your manager gave you credit you didn't fully deserve?", "format": "situational"},
+    {"text": "What would you do in your first 30 days in a completely new role?", "format": "situational"},
+    {"text": "How would you handle being asked to take on a project outside your expertise?", "format": "situational"},
+    {"text": "How would your closest coworkers describe you in three words?", "format": "self_assessment"},
+    {"text": "What's a strength you think is currently underused in your career?", "format": "self_assessment"},
+    {"text": "What kind of feedback do you have the hardest time hearing?", "format": "self_assessment"},
+    {"text": "What's a professional habit you're actively trying to change?", "format": "self_assessment"},
+    {"text": "What does \"doing good work\" mean to you personally?", "format": "self_assessment"},
+    {"text": "What's something you're better at now than you were two years ago?", "format": "self_assessment"},
+    {"text": "What kind of environment brings out your best work?", "format": "self_assessment"},
+    {"text": "What's a misconception people often have about you at first?", "format": "self_assessment"},
+    {"text": "How do you know when you've done a job well, beyond external praise?", "format": "self_assessment"},
+    {"text": "What's a value you won't compromise on at work?", "format": "self_assessment"},
+    {"text": "Why does this type of work matter to you personally?", "format": "motivational"},
+    {"text": "What draws you to this industry over others?", "format": "motivational"},
+    {"text": "What kind of problems do you want to be solving in five years?", "format": "motivational"},
+    {"text": "What would make you say yes to a role even if the pay were lower?", "format": "motivational"},
+    {"text": "What's something about this field that most people misunderstand?", "format": "motivational"},
+    {"text": "What would need to be true for you to feel proud of your work a year from now?", "format": "motivational"},
+    {"text": "Why leave what you're doing now?", "format": "motivational"},
+    {"text": "What's the difference between a job you tolerate and one you love?", "format": "motivational"},
+    {"text": "What team dynamic helps you do your best work?", "format": "motivational"},
+    {"text": "What's a company or leader you admire, and why?", "format": "motivational"},
+    {"text": "If you were a product, what would your one-line pitch be?", "format": "curveball"},
+    {"text": "If your career were a book, what would this chapter be titled?", "format": "curveball"},
+    {"text": "Describe your work style using a metaphor that isn't about sports.", "format": "curveball"},
+    {"text": "If you could remove one meeting type from existence, which and why?", "format": "curveball"},
+    {"text": "What's a skill outside your field that's made you better at your job?", "format": "curveball"},
+    {"text": "If you had to train your replacement in one day, what's the first thing you'd teach?", "format": "curveball"},
+    {"text": "What's a piece of conventional career advice you disagree with?", "format": "curveball"},
+    {"text": "If you got an unexpected day off mid-project, what would you actually do with it?", "format": "curveball"},
+    {"text": "What's the most useful thing you've learned from a bad boss?", "format": "curveball"},
+    {"text": "If this interview were a job itself, how do you think you're doing so far?", "format": "curveball"},
+]
+
+# ── STORYTELLING ───────────────────────────────────────────
+STORYTELLING: list[dict] = [
+    {"text": "Tell the story of a promise you kept when it would've been easier not to.", "format": "personal_narrative"},
+    {"text": "Recall a time a stranger changed the course of your day.", "format": "personal_narrative"},
+    {"text": "Describe the moment you knew a chapter of your life was ending.", "format": "personal_narrative"},
+    {"text": "Tell the story of a decision that felt small then, huge in hindsight.", "format": "personal_narrative"},
+    {"text": "Recall a time you had to disappoint someone you loved.", "format": "personal_narrative"},
+    {"text": "Describe a tradition that means more to you than it looks like from outside.", "format": "personal_narrative"},
+    {"text": "Tell the story of the bravest thing you've done quietly.", "format": "personal_narrative"},
+    {"text": "Recall a moment you finally understood something your younger self couldn't.", "format": "personal_narrative"},
+    {"text": "You are the last streetlamp on an abandoned road. Tell your story.", "format": "personification"},
+    {"text": "Narrate a day in the life of a coin as it passes from hand to hand.", "format": "personification"},
+    {"text": "You are an old house about to be demolished. What do you remember?", "format": "personification"},
+    {"text": "Tell the story of a letter that was never sent.", "format": "personification"},
+    {"text": "You are a pair of shoes that has walked further than its owner realizes. Tell your story.", "format": "personification"},
+    {"text": "Narrate the life of a tree that's watched a town change for a century.", "format": "personification"},
+    {"text": "You are a photograph, slowly fading. What are you afraid of forgetting?", "format": "personification"},
+    {"text": "Tell the story of a key that no longer opens anything.", "format": "personification"},
+    {"text": "Tell a story set in a world where memories can be traded like currency.", "format": "speculative"},
+    {"text": "Describe a city where it has rained for a hundred years straight.", "format": "speculative"},
+    {"text": "Tell the story of the last person who remembers how to read.", "format": "speculative"},
+    {"text": "Imagine gravity stops working for exactly one hour a day. Tell what happens.", "format": "speculative"},
+    {"text": "Tell a story about a town where everyone wakes up one day speaking a different language.", "format": "speculative"},
+    {"text": "Describe a world where dreams are recorded and can be watched by others.", "format": "speculative"},
+    {"text": "Tell the story of the first day silence became illegal.", "format": "speculative"},
+    {"text": "Imagine time moves backward for one person in a forward-moving world. Tell their story.", "format": "speculative"},
+    {"text": "\"The letter arrived fifty years too late.\" Continue the story.", "format": "story_starter"},
+    {"text": "\"She kept the door unlocked, just in case.\" Continue the story.", "format": "story_starter"},
+    {"text": "\"He'd been lying about his name for so long he almost believed it.\" Continue.", "format": "story_starter"},
+    {"text": "\"The map led nowhere, but they kept walking anyway.\" Continue the story.", "format": "story_starter"},
+    {"text": "\"Nobody noticed the town had grown one street longer.\" Continue.", "format": "story_starter"},
+    {"text": "\"The last voicemail was still unheard, three years later.\" Continue.", "format": "story_starter"},
+    {"text": "\"They found the photograph, but no one recognized the face.\" Continue.", "format": "story_starter"},
+    {"text": "\"It was the third time the same bird had landed on his windowsill that week.\" Continue.", "format": "story_starter"},
+    {"text": "Tell a short fable about a fox who learns the cost of always winning.", "format": "fable"},
+    {"text": "Invent a myth explaining why the moon changes shape.", "format": "fable"},
+    {"text": "Tell the story of a village that forgot how to argue, and what happened next.", "format": "fable"},
+    {"text": "Invent a fable about a river that refuses to reach the sea.", "format": "fable"},
+    {"text": "Tell a story where the villain is right and everyone else is wrong.", "format": "fable"},
+    {"text": "Invent a parable about a king who could grant any wish but his own.", "format": "fable"},
+    {"text": "Tell a fable about two neighbors who never once spoke, but always helped each other.", "format": "fable"},
+    {"text": "Invent a myth about the first lie ever told.", "format": "fable"},
+    {"text": "Tell a story that unfolds entirely through one overheard conversation.", "format": "dialogue"},
+    {"text": "Narrate a scene where two old friends meet by accident after twenty years, without saying who they are at first.", "format": "dialogue"},
+    {"text": "Tell a story through a single argument between two people who both know they're wrong.", "format": "dialogue"},
+    {"text": "Narrate a goodbye between two characters who both know it isn't really goodbye.", "format": "dialogue"},
+    {"text": "Tell a story where the most important thing is never actually said out loud.", "format": "dialogue"},
+    {"text": "Tell a mystery story where the detective is the one who committed the crime.", "format": "genre_twist"},
+    {"text": "Tell a love story where the two characters never actually meet.", "format": "genre_twist"},
+    {"text": "Tell a horror story where the monster is trying to help.", "format": "genre_twist"},
+    {"text": "Tell a comedy where the punchline is also the tragedy.", "format": "genre_twist"},
+    {"text": "Tell a story that starts at the ending and works backward.", "format": "genre_twist"},
+]
+```
+
+At the bottom of the same file, build the aggregate bank keyed by `SessionMode` (import the enum from `app.models.practice_session`):
+
+```python
+from app.models.practice_session import SessionMode
+
+PROMPT_BANK: dict[SessionMode, list[dict]] = {
+    SessionMode.impromptu: (
+        [{"text": w, "format": "one_word"} for w in IMPROMPTU_ONE_WORD] + IMPROMPTU_FULL
+    ),
+    SessionMode.debate: DEBATE,
+    SessionMode.interview: INTERVIEW,
+    SessionMode.storytelling: STORYTELLING,
+}
+```
+
+**Verification step:** confirm every `SessionMode` enum value has a matching key here, and flag any mismatch explicitly rather than silently working around it.
+
+---
+
+## PHASE 2 — Schema & model changes
+
+1. In `verve-api/app/models/practice_session.py`, add three nullable columns to `PracticeSession`:
+   - `prompt_format: Mapped[str | None]` (Text/String, nullable) — the tag from `PROMPT_BANK` (e.g. `"ethical_dilemma"`, `"one_word"`).
+   - `debate_side: Mapped[str | None]` (String, nullable) — `"for"` or `"against"`, only ever set when `mode == debate`.
+   - `hints_enabled: Mapped[bool]` (Boolean, `nullable=False, default=False`) — whether the live-hints layer should run for this session.
+2. Generate an Alembic migration for these three columns (follow the existing migration style in `verve-api/alembic/versions/`).
+3. Update `verve-api/app/schemas/practice_session.py`:
+   - `PracticeSessionCreate`: add optional `prompt_style: Literal["one_word", "full"] | None = None` (impromptu-only, ignored for other modes) and `hints_enabled: bool = False`. `prompt_text` stays optional (still overridable by callers, e.g. the daily-challenge flow), but **document that omitting it now triggers server-side random selection instead of leaving it null.**
+   - `PracticeSessionRead` (or equivalent read schema): add `prompt_format: str | None`, `debate_side: str | None`, `hints_enabled: bool`.
+4. Update `verve-api/app/schemas/challenges.py`'s `DailyChallengeRead` to include an optional `format: str | None` field.
+5. Update `verve-api/app/api/v1/history.py` wherever it maps session fields, to also pass through `prompt_format` and `debate_side`.
+
+---
+
+## PHASE 3 — Session creation logic (the core selection engine)
+
+Rewrite `create_session()` in `verve-api/app/services/practice_session_service.py`:
+
+1. **If `payload.prompt_text` is explicitly provided** (e.g. from the daily-challenge flow), use it as-is; set `prompt_format` from the payload if given, else `None`. Skip steps 2–4.
+2. **Otherwise, select from `PROMPT_BANK[payload.mode]`:**
+   - **Impromptu style resolution**: if `payload.prompt_style == "one_word"`, filter the pool to entries with `format == "one_word"`. If `"full"`, filter to everything else. If `None` (Surprise Me), use the full combined pool.
+   - **No-repeat logic**: query the user's last 8 `PracticeSession` rows for this `mode` (ordered by `created_at desc`), collect their `prompt_text` values (exclude exactly) and their last 2 `prompt_format` values (exclude those formats from the candidate pool too, when possible). Build the candidate pool as: all entries in the filtered pool minus excluded texts minus excluded formats. **If the candidate pool is empty** (small bank + heavy usage), fall back to: pool minus excluded texts only. **If that's still empty**, fall back to the full filtered pool (better a repeat than a crash).
+   - Randomly select one entry from the final candidate pool. Set `session.prompt_text = entry["text"]`, `session.prompt_format = entry["format"]`.
+3. **Debate side assignment**: if `payload.mode == SessionMode.debate`, randomly set `session.debate_side = random.choice(["for", "against"])`. For all other modes, leave it `None`.
+4. **Hints flag**: set `session.hints_enabled = payload.hints_enabled` (default `False`) for every mode — hints are available regardless of mode, not just debate.
+5. Persist as before (existing commit/rollback/error-handling pattern). Return the full session object including the new fields.
+
+Add a focused unit test (or note where one should go) verifying: (a) two consecutive calls for the same user/mode don't return the same `prompt_text` when the pool is large enough, (b) debate sessions always get a non-null `debate_side`, (c) non-debate sessions never get a `debate_side`.
+
+---
+
+## PHASE 4 — Daily challenge endpoint
+
+Update `verve-api/app/api/v1/challenges.py`:
+
+- Remove the inline `DAILY_PROMPTS` dict; import `PROMPT_BANK` from `app.data.prompts` instead, so there is exactly one source of truth for prompt content.
+- Keep the existing deterministic date-hash logic for choosing mode and prompt index — **do not** make the daily challenge random; it must stay the same for all users on a given day.
+- When building `DailyChallengeRead`, also populate the new `format` field from the selected entry's `"format"` key.
+- Note: for `SessionMode.impromptu`, the daily challenge should pull from the *combined* impromptu pool (one-word + full) exactly as `PROMPT_BANK` provides it — no special-casing needed here since users aren't choosing a style for the daily challenge.
+
+---
+
+## PHASE 5 — Frontend: setup screen (bug fix + new controls)
+
+In `verve-web/app/training/setup/page.tsx`:
+
+1. Add a mode-conditional **impromptu style selector** (only rendered when `mode === "impromptu"`): three options — "One Word", "Full Prompt", "Surprise Me" (default-selected). Store as local state `promptStyle: "one_word" | "full" | null` (`null` = Surprise Me).
+2. Add a **"Live hints" toggle** (rendered for all modes), default off, with the exact copy: *"Get gentle real-time nudges — pace, filler words, time — while you speak."* Store as `hintsEnabled: boolean`.
+3. Update the `handleStart` function's call to `createSession` to pass `prompt_style: promptStyle` (only when mode is impromptu, else omit/undefined) and `hints_enabled: hintsEnabled`.
+4. Update `verve-web/lib/api/client.ts`'s `createSession` function signature/type to accept these two new optional fields, and update the `SessionMode`-adjacent types/interfaces used for the session response to include `prompt_format`, `debate_side`, and `hints_enabled`.
+
+In `verve-web/app/training/curtain/[sessionId]/page.tsx` (**bug fix**):
+
+5. Fetch the session (it currently doesn't) to read the real `prep_seconds`, and initialize `countdown` state from that value instead of the hardcoded `5`. Keep the rest of the phase transitions (`prep` → `curtain-opening` → `recording` → `redirect`) intact.
+6. **Debate side badge**: when the fetched session's `mode === "debate"`, render a clear, high-contrast badge during the `prep` phase (and carried into the recording page too — see Phase 6) reading `"You are arguing FOR this motion"` or `"...AGAINST this motion"` based on `debate_side`, positioned near the prompt text so the user preps against the assigned side, not their own opinion. Style it distinctly (e.g. green for "for", red/warm for "against") so it can't be missed or confused with the prompt itself.
+
+---
+
+## PHASE 6 — Frontend: recording screen (remove dead fallback + live hints)
+
+In `verve-web/app/training/record/[sessionId]/page.tsx`:
+
+1. Since `prompt_text` should now never be null in normal operation, **demote `FALLBACK_PROMPTS`** to a single generic last-resort string per mode used only if the session fetch itself fails (already partially the case in the `.catch()` block) — do not treat it as a primary path anymore. Also surface `prompt_format` and `debate_side` from the fetched session and pass them to `PromptCard` (extend its props) so the debate side badge persists onto the recording screen itself, not just the curtain screen.
+2. **Live hints subsystem** (only runs when `sessionData.hints_enabled === true`):
+   - On entering the `"recording"` phase, if hints are enabled and the browser supports it, start a `webkitSpeechRecognition`/`SpeechRecognition` instance in `continuous: true, interimResults: true` mode, running alongside (not replacing) the existing `useAudioRecorder` audio capture — the two are independent; speech recognition here is only for live analysis, the actual graded recording still goes through the existing Whisper pipeline unchanged.
+   - Maintain a rolling buffer of the last ~15 seconds of recognized words (with timestamps) in a ref, updated as `onresult` fires.
+   - Every ~2–3 seconds, run a small local analyzer function against that buffer, checking only:
+     - **Filler-word rate**: count of `um`, `uh`, `like`, `you know` etc. in the buffer above a threshold → hint `"Watch the filler words"`.
+     - **Silence**: no new recognized words for >4 seconds while still in the recording phase → hint `"Keep going"`.
+     - **Pace**: rough words-per-minute over the buffer window far outside ~120–160 wpm → hint `"Slow down"` or `"Pick up the pace"`.
+     - **Time checkpoint**: at ~75% of `speak_seconds` elapsed, a one-time hint `"Start wrapping up"` (fire once only, track with a ref flag so it doesn't repeat).
+   - Surface **at most one hint at a time** as a small, non-blocking, auto-dismissing pill/badge near the existing timer — not a modal, not a paragraph, no interruption to the waveform or recording controls. Auto-dismiss each hint after ~3–4 seconds.
+   - Explicitly do **not** attempt any content-level feedback (structure, relevance, argument quality) in this live layer — that stays exclusively in the existing post-session `feedback_engine.py`/Whisper pipeline, which already runs after the recording ends and has the full transcript to reason over properly.
+   - Wrap all of this in defensive checks: if `SpeechRecognition` isn't supported in the user's browser, silently skip the whole hints layer (no error shown) and behave exactly as if `hints_enabled` were false.
+   - Clean up (stop recognition, clear intervals/refs) on unmount and when recording stops, mirroring the existing cleanup patterns already used for `useAudioRecorder`.
+
+---
+
+## PHASE 7 — Final verification checklist
+
+Before finishing, confirm and report on each of the following:
+
+- [ ] Every `SessionMode` enum value has a corresponding key in `PROMPT_BANK`.
+- [ ] `create_session()` never leaves `prompt_text` null under normal operation (only if `PROMPT_BANK` itself were empty for a mode, which shouldn't happen).
+- [ ] Debate sessions always get a `debate_side`; no other mode ever does.
+- [ ] The curtain screen's prep countdown now matches the user's chosen `prep_seconds` instead of a hardcoded value.
+- [ ] The debate side badge appears on both the curtain screen and the recording screen, is visually distinct from the prompt text, and cannot be mistaken for something the user chose themselves.
+- [ ] `hints_enabled` defaults to `false` everywhere it's threaded through (schema, service, frontend state) — this is strictly opt-in.
+- [ ] The live-hints layer degrades silently (no crash, no error UI) in browsers without `SpeechRecognition` support.
+- [ ] The live-hints layer never blocks, delays, or interferes with the actual audio recording/upload/feedback pipeline — it is a purely additive, best-effort overlay.
+- [ ] No hint shown live ever claims to be "feedback" — reserve that word for the post-session report, since the live layer is deliberately shallow (pace/filler/time only) versus the deep analysis that happens afterward.
+
+Show the full diff/final contents of every file touched across all phases, grouped by phase, and call out any assumption you had to make where the existing code was ambiguous.
+
+
+
+                                                        ---Rename & content-add prompt-------
+
+In the verve_ver2-main repo, rename the practice mode currently called "impromptu" to "freestyle" everywhere, and expand its prompt content. Do this carefully since SessionMode is a native Postgres enum tied to stored data — don't treat this as a plain string find-and-replace.
+
+Backend enum & migration: In verve-api/app/models/practice_session.py, rename SessionMode.impromptu to SessionMode.freestyle with value "freestyle". Create a new Alembic migration that runs ALTER TYPE sessionmode RENAME VALUE 'impromptu' TO 'freestyle' (check the actual enum type name in the DB/prior migrations first — it may not be literally sessionmode) so existing rows and the enum stay valid; do not drop and recreate the column, and do not silently leave old 'impromptu' rows orphaned.
+Prompt bank: In verve-api/app/data/prompts.py, rename IMPROMPTU_ONE_WORD and IMPROMPTU_FULL to FREESTYLE_ONE_WORD and FREESTYLE_FULL, update the PROMPT_BANK key from SessionMode.impromptu to SessionMode.freestyle, and merge in the new FREESTYLE_CREATIVE list below into the freestyle pool (add it as a third source alongside one-word and full, all still selectable under "Surprise Me"; treat FREESTYLE_CREATIVE entries as part of the "full" style bucket for the existing one-word/full/surprise-me toggle, not a fourth style option, unless you think a third toggle option like "Creative" is a better fit — flag that as a suggestion rather than deciding unilaterally).
+python
+FREESTYLE_CREATIVE: list[dict] = [
+    {"text": "Pitch an infomercial for a product that solves a problem nobody has.", "format": "absurd_pitch"},
+    {"text": "You're an alien anthropologist explaining 'small talk' to your home planet.", "format": "outsider_pov"},
+    {"text": "Narrate the room around you right now like a nature documentary host.", "format": "sensory_narration"},
+    {"text": "Give a eulogy for a habit you're happy to have lost.", "format": "mock_ceremony"},
+    {"text": "You have to explain your day using only questions.", "format": "constraint"},
+    {"text": "Talk for 30 seconds without using the word 'I.'", "format": "constraint"},
+    {"text": "Start with the word 'meanwhile' and build a story from there.", "format": "association_chain"},
+    {"text": "Free-associate from the word 'static' for as long as you can, out loud.", "format": "association_chain"},
+    {"text": "You're hosting a game show where the prize is mildly disappointing. Sell it anyway.", "format": "absurd_pitch"},
+    {"text": "Describe color to someone who has never been able to see.", "format": "sensory_narration"},
+    {"text": "Give a weather report for your own mood today.", "format": "mock_ceremony"},
+    {"text": "You're narrating a silent film using only sound effects and tone, no real words allowed... except you have to use real words. Make it work.", "format": "constraint"},
+    {"text": "Combine two random objects in this room into a single invented product and pitch it.", "format": "absurd_pitch"},
+    {"text": "You're a time traveler from 200 years ago seeing a smartphone for the first time. React out loud.", "format": "outsider_pov"},
+    {"text": "Deliver the safety announcement for a rollercoaster that doesn't actually exist yet.", "format": "mock_ceremony"},
+]
+Schemas: Update any Literal["impromptu", "debate", "interview", "storytelling"] type hints (e.g. prompt_style gating logic, request/response schemas) to use "freestyle" instead.
+Frontend: Search the entire verve-web directory case-insensitively for impromptu and update every occurrence, including at minimum: modeLabels in app/training/setup/page.tsx, the mode list/descriptions in app/training/page.tsx, FALLBACK_PROMPTS keys in app/training/record/[sessionId]/page.tsx, any ModeCard/ModeIcons component data, dashboard mode references, and the SessionMode TypeScript type in lib/api/client.ts. Update the displayed label to "Freestyle" (not "Impromptu") everywhere it's user-facing.
+Routes/URLs: If any route, query param, or path segment literally uses the string impromptu (e.g. ?mode=impromptu), update it to freestyle, and grep for any hardcoded links to that URL elsewhere in the app so nothing 404s.
+Daily challenge endpoint: Confirm challenges.py picks up the renamed enum/key automatically since it now imports PROMPT_BANK — no separate rename needed there, just verify it still works.
+Run a final repo-wide case-insensitive search for impromptu after all changes and report any remaining matches (e.g. in comments, README, or CONTEXT.md) so nothing is missed, even if non-functional.
+Show the full diff of every changed file, and explicitly confirm the migration is reversible (include a working downgrade() that renames back to 'impromptu').
