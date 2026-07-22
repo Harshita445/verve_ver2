@@ -1,0 +1,14 @@
+__pycache__
+*.py[cod]
+*.egg-info
+.git
+.gitignore
+.env
+.env.example
+README.md
+venv
+.venv
+.idea
+.vscode
+tests/
+alembic/versions/

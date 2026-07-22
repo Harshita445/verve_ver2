@@ -1,0 +1,54 @@
+Here's the wider map so you can see where the gaps actually are: Yoodli is the data-driven pick with the most detailed analytics dashboard, Orai is structure-driven with step-by-step lesson progression, Speeko is anxiety-driven with a calm, meditation-style approach, Toastmasters is community-driven with real live audiences. Poised does live desktop overlay feedback during actual meetings, VirtualSpeech is the only major option with VR audience simulation, and Oratori focuses on thirty-second drills for a specific upcoming moment like an interview or pitch. Almost everyone in this space is optimizing delivery mechanics — filler words, pace, tone, energy. 
+RankedSpeak
+Oratori
+
+That's the actual opening. Here's where I'd push:
+
+1. Own "content quality," not just delivery
+
+Your feedback engine already scores structure, relevance, evidence, persuasion, confidence, and examples — that's judging what someone actually said and argued, not just how smoothly they said it. Almost nobody else in that list does this well; most are filler-word/pace counters. Make this the headline, not a footnote: "the only coach that tells you your argument was weak, not just that you said 'um' fourteen times."
+
+2. Make it adversarial, not just a monologue
+
+Right now (like most competitors) it's record → get scored. A genuinely different mode: the AI pushes back mid-response — interrupts with a follow-up question, a skeptical rebuttal, a "but what about X" — especially in your Debate and Interview modes. That's much closer to what real pressure feels like, and it's a meaningfully harder engineering lift than anyone casually competitor-matches.
+
+3. Lean into the theatrical identity you already built
+
+The curtain-reveal, stage-spotlight, podium framing is a real brand asset — none of Yoodli/Orai/Speeko/Poised have any personality at all, they're all clinical dashboards. Don't undersell this. A "your speech, your stage" identity is memorable and shareable in a way "here's your filler word count" isn't.
+
+4. Pick a vertical instead of staying general
+
+General "improve your public speaking" is the most crowded lane. Options that would let you win a specific audience instead of losing a broad one:
+
+Interview prep specifically — behavioral + technical rounds, tied to real job-interview anxiety (huge, motivated, willing-to-pay audience)
+Competitive debate / speech teams — your Debate mode + Elo ladder is a natural fit for high school/college debate circuits, who already think in rankings and tournaments
+Non-native professional speakers — this segment is currently split across pronunciation tools (ELSA, BoldVoice) and delivery tools, with nobody doing content-quality feedback for them
+5. Social proof beyond AI scoring
+
+Since AI-only feedback is now table stakes, a layer of real human review — peers or mentors leaving quick reactions on a session, or opt-in public replays — gives you something none of the pure-AI tools offer and Toastmasters' community strength without the weekly-meeting commitment.
+
+6. Sell to organizations, not just individuals
+
+Every competitor above is B2C subscription. A cohort/team mode — university debate clubs, corporate comms training, sales team pitch practice with a manager dashboard — is a different sales motion (higher ACV, lower churn) that's mostly unaddressed in this list.
+
+My honest recommendation: pick one of #1, #2, or a vertical from #4 and make it unmistakably your identity before you try to be all of them — trying to match every competitor's strength at once is how you end up as "Yoodli but smaller."
+
+
+
+UNIQUE THINGS TO INCORPORATE:
+2. Solo recording doesn't build the skill that matters
+
+None of the pure monologue-recording apps develop the skills that matter in real conversations — handling pushback, adapting to the other person's responses, recovering from mistakes in real time — that's a direct quote of the gap, not my opinion. This is the single biggest structural hole in the category. Your Debate and Interview modes are the natural place to build a genuinely interactive AI counterpart that interrupts, pushes back, asks the skeptical follow-up — not "record then get scored," but something closer to sparring. This is hard to build well, which is exactly why it's defensible instead of copy-pasteable in a weekend. 
+Insight7
+
+3. Everyone measures the same shallow layer, and users know it
+
+Filler words, pace, tone — that's now table stakes and commoditized across Orai/Speeko/Poised/Yoodli. Your feedback engine already scores structure/evidence/persuasion, which is a step ahead — push it further into something none of them do: flag actual logical weaknesses — an unsupported claim, a non-sequitur, a strawman — the way a debate judge or a good editor would, not a delivery coach. That's a genuinely different value proposition ("this app made my argument better," not "this app made me say 'um' less") and it's hard to fake without real prompt/eval craftsmanship, which is exactly the kind of technical moat a small team can actually defend.
+
+4. AI feedback feels robotic, humans are expensive — nobody's built the middle
+
+The complaint pattern across reviews is consistent: AI feedback lacks judgment, human coaching doesn't scale. Instead of a full coach marketplace, a reciprocal peer-grading exchange — you rate two anonymized strangers' sessions to unlock a human rating on your own — gets you real human judgment at zero marginal cost, and it's a mechanic literally nobody in this list has.
+
+5. Privacy is an unaddressed trust gap in a category built on recording your voice
+
+People are practicing real interview answers, real confidential pitch content, into cloud AI tools — and privacy is explicitly flagged as a rising 2026 concern people search for and don't find addressed. A clear, credible stance (auto-delete audio after transcription, no training on user data, exportable/deletable history) is cheap to build, costs you nothing competitively, and is a real reason to trust you over a bigger incumbent with vaguer data practices.
