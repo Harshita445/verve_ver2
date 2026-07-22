@@ -1,0 +1,37 @@
+1. Weekly session cap (5/week) — you mentioned this early but we never actually built it
+
+In verve-api, enforce a cap of 5 practice sessions per rolling 7-day window per user.
+
+In app/services/practice_session_service.py's create_session(), before creating a new session, query PracticeSession for user_id == user.id with created_at >= now() - 7 days, count them, and if the count is >= 5, raise a new PracticeSessionLimitError (subclass of PracticeSessionError) rather than creating the row.
+In app/api/v1/sessions.py, catch this specific error and return HTTP 429 with a clear message including when their next slot opens up (e.g. compute the oldest of those 5 sessions' created_at + 7 days).
+Add a lightweight GET /sessions/quota endpoint returning { used: int, limit: int, resets_at: datetime | None } so the frontend can show remaining sessions proactively, not just fail at the last click.
+In verve-web/app/training/page.tsx (mode select) or setup/page.tsx, fetch this quota on load and show a small "You've used 3/5 sessions this week — resets in 2 days" note; if used >= limit, disable the "Begin Practice" button and show when it resets instead of letting them hit a surprise error after configuring a whole session.
+Don't use the existing in-memory RateLimiter for this — it resets on server restart and won't work correctly across multiple backend workers/processes; a DB-backed count (as above) is durable and correct regardless of deployment topology.
+Note as a flagged decision (don't implement unless asked): should the cap apply to completed sessions only, or any session created regardless of whether it was finished/abandoned? I'd default to counting all created sessions, since abandoning mid-recording still used a "slot" — but confirm this matches your intent.
+2. Diagnostic first session (baseline rating before dashboard)
+
+When a new user's onboarding_completed is false and they have zero PracticeSession rows, redirect them from /dashboard to a one-time diagnostic flow: a single freestyle session (skip mode selection, always freestyle, fixed prep/speak times) framed as "Let's get your baseline." After it completes and feedback is generated, set onboarding_completed = true and redirect to the normal dashboard. Update app/dashboard/page.tsx to check this condition on load, and update RadarChart.tsx/SkillBreakdown.tsx to show a friendly "Complete your first session to see this" empty state for the rare case someone reaches the dashboard before it's done (e.g. they navigated away mid-diagnostic).
+
+3. Goal-biased mode suggestions
+
+The Goal model currently only has a free-text description and target_sessions — no structured link to a mode. Add a nullable focus_mode: Mapped[SessionMode | None] column to Goal (migration included), and update the goal creation form (app/goals/page.tsx) to let users optionally tag a goal with a mode (e.g. "Debate," "Interview") via a dropdown, not just free text. Then, on /dashboard and /training, if the user has an active unachieved goal with a focus_mode set, visually highlight that mode's ModeCard (e.g. a subtle gold border or a "Recommended for your goal" badge) — don't hide or restrict the other modes, just nudge.
+
+4. Retry vs. new prompt after recording
+
+On app/training/record/[sessionId]/page.tsx, after phase reaches "saving" and before triggering the upload/redirect flow, insert a brief confirmation state: "Happy with that take?" with two buttons — "Use this recording" (proceeds exactly as today: upload → process → feedback) and "Try again" (discards the current audioBlob, resets the recorder via useAudioRecorder, and restarts the countdown with the same prompt_text/debate_side rather than fetching a new one — retrying should mean retrying the same prompt, not getting a fresh one). Track retry count client-side only; no need to persist it unless you want it in feedback later.
+
+5. Streaks
+
+Add a current_streak_days: Mapped[int] and longest_streak_days: Mapped[int] to User (migration included). In the session-completion path in app/workers/tasks.py (after a session successfully reaches SessionStatus.completed), check the user's most recent other completed session's completed_at date: if it was yesterday, increment current_streak_days; if it was today already, leave unchanged; otherwise reset to 1. Update longest_streak_days if the new current value exceeds it. Surface both on app/dashboard/page.tsx near AchievementBadges.tsx, and add a new achievement badge tier (e.g. 3-day, 7-day, 30-day streak) to whatever badge-definition list currently backs achievements.py.
+
+6. Weekly recap email
+
+Now that app/services/email_service.py exists (from the Resend integration), add a Celery beat scheduled task in app/workers/tasks.py that runs weekly (e.g. Monday mornings) and, for each user with at least one session in the past 7 days, sends a recap email: sessions completed this week, average score change vs. the prior week (reuse whatever aggregation progress_service.py already exposes), and one encouraging line pulled from their most recent NextChallenge-style suggestion. Add an email_recaps_enabled: Mapped[bool] = mapped_column(default=True) column to User and a toggle in account settings so people can opt out without disabling all email.
+
+7. Private/friend leaderboards
+
+Extend the leaderboard system beyond the current global one. Add a Group model (id, name, invite_code, created_by) and a GroupMembership join table (user_id, group_id). Add endpoints to create a group, join via invite code, and list a group's leaderboard (reuse the existing ranking/scoring logic in leaderboard_service.py, just scoped to group members instead of all users). On app/rankings/page.tsx, add a tab switcher between "Global" and "My Groups," and a simple "Create group" / "Join with code" flow.
+
+8. Audio playback with transcript scrubbing
+
+On app/training/feedback/[sessionId]/page.tsx, in TranscriptReview.tsx, add an <audio> element sourced from the session's stored audio_url, and make each transcript segment (assuming transcript_annotations already carries timestamps from the feedback engine — verify this) clickable, seeking the audio to that segment's start time. Highlight the currently-playing segment as the audio progresses (a simple timeupdate listener comparing currentTime against segment boundaries). This turns the existing text-only annotation list into something the user can actually hear in context, especially useful for filler-word or pacing annotations.
