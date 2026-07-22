@@ -1,0 +1,342 @@
+Work only in verve-api. Make these three changes, nothing else — no refactors, 
+no new dependencies, no frontend changes.
+
+1. Replace Celery with FastAPI BackgroundTasks for audio processing:
+   - In app/workers/tasks.py, extract the body of the process_session task into 
+     a plain function `run_session_pipeline(session_id: str) -> None` that opens 
+     its own DB session (same step-by-step logic, same error handling as now).
+   - In app/api/v1/audio.py, add `background_tasks: BackgroundTasks` to the 
+     upload_audio route's parameters, and replace 
+     `process_session.delay(str(session_id))` with 
+     `background_tasks.add_task(run_session_pipeline, str(session_id))`.
+   - Leave celery_app.py and the Celery task decorator in place but unused, so 
+     queue-based processing can be restored later without rewriting the pipeline.
+
+2. Add a weekly session cap (rolling 7 days) to control OpenAI cost:
+   - Add `weekly_session_limit: int = 6` to Settings in app/core/config.py.
+   - In app/services/practice_session_service.py, add 
+     `count_sessions_this_week(db, user_id) -> int` — counts PracticeSession 
+     rows for that user with created_at >= now - 7 days.
+   - In the session-creation endpoint in app/api/v1/sessions.py, call this 
+     before creating a session. If count >= settings.weekly_session_limit, 
+     raise HTTPException(429, "Weekly practice limit reached — resets on a 
+     rolling 7-day basis.").
+
+3. Default storage to Cloudinary:
+   - Update .env.example to set STORAGE_PROVIDER=cloudinary by default, with a 
+     comment that free-tier Cloudinary covers early-stage audio volume.
+
+Show me a diff for each change before writing files.
+
+prompt 2:
+Work only in verve-api. Make this one change only.
+
+In app/api/v1/sessions.py, in the weekly-cap check added earlier: when raising 
+the 429, compute resets_at as the created_at of the user's oldest session 
+within the current rolling 7-day window, plus 7 days (that's the moment the 
+window rolls forward and a slot frees up). Return it as an ISO 8601 UTC string 
+in the error body:
+
+raise HTTPException(
+    status_code=429,
+    detail={
+        "message": "Weekly practice limit reached — resets on a rolling 7-day basis.",
+        "resets_at": resets_at.isoformat(),
+    },
+)
+
+Show me a diff before writing.
+
+
+prompt 3:
+Work only in verve-web. Make these changes, nothing else — no refactors, 
+no new dependencies, no new components unless specified.
+
+Backend context: POST /api/v1/sessions now returns 429 with JSON body 
+{"detail": {"message": "...", "resets_at": "2026-07-29T14:00:00Z"}} when a 
+user has hit their weekly session cap. apiFetch in lib/api/client.ts throws 
+ApiError(message, status) on non-2xx — catch it by checking error.status === 429. 
+Parse resets_at from the response body (adjust apiFetch's error path if needed 
+so the parsed JSON detail is reachable, not just the raw text).
+
+1. In app/training/setup/page.tsx, update handleStart's catch block:
+   - If the caught error is an ApiError with status 429, store the parsed 
+     resets_at in a new state `limitResetsAt: string | null`.
+   - Otherwise keep the existing fallback behavior.
+
+2. Add components/shared/WeeklyLimitMessage.tsx, shown in place of the 
+   "Start Practice" button when limitResetsAt is set:
+   - Compute days remaining as Math.ceil((new Date(limitResetsAt) - new Date()) 
+     / 86400000), minimum 1.
+   - Pick ONE at random from these exact message templates (use {days} as the 
+     placeholder, singular "day" when days === 1):
+
+     1. "You've given it everything this week — that's exactly the kind of 
+        effort that adds up. Come back in {days} {day/days} and let's keep going."
+     2. "Six strong sessions down. Rest that voice for {days} {day/days} — 
+        you've more than earned it."
+     3. "This week's spotlight is taking a short intermission. It'll be back 
+        on in {days} {day/days}, ready when you are."
+     4. "You showed up every time this week, and it shows. See you back on 
+        stage in {days} {day/days}."
+
+   - Render the chosen message, disable/replace the start button, no countdown 
+     timer — just the static day count from resets_at.
+   - Use existing Tailwind tokens on this page (gold accent, text-primary, 
+     text-muted) — no new colors.
+
+3. Wire WeeklyLimitMessage into app/training/setup/page.tsx where the Start 
+   Practice button currently renders.
+
+Show me a diff for each file before writing.
+
+
+PROMPT 4:
+Work only in verve-web. Make these changes, nothing else — no refactors, 
+no new dependencies, no new components unless specified.
+
+Backend context: POST /api/v1/sessions now returns 429 with JSON body 
+{"detail": {"message": "...", "resets_at": "2026-07-29T14:00:00Z"}} when a 
+user has hit their weekly session cap. apiFetch in lib/api/client.ts throws 
+ApiError(message, status) on non-2xx — catch it by checking error.status === 429. 
+Parse resets_at from the response body (adjust apiFetch's error path if needed 
+so the parsed JSON detail is reachable, not just the raw text).
+
+1. In app/training/setup/page.tsx, update handleStart's catch block:
+   - If the caught error is an ApiError with status 429, store the parsed 
+     resets_at in a new state `limitResetsAt: string | null`.
+   - Otherwise keep the existing fallback behavior.
+
+2. Add components/shared/WeeklyLimitMessage.tsx, shown in place of the 
+   "Start Practice" button when limitResetsAt is set:
+   - Compute days remaining as Math.ceil((new Date(limitResetsAt) - new Date()) 
+     / 86400000), minimum 1.
+   - Pick ONE at random from these exact message templates (use {days} as the 
+     placeholder, singular "day" when days === 1):
+
+     1. "You've given it everything this week — that's exactly the kind of 
+        effort that adds up. Come back in {days} {day/days} and let's keep going."
+     2. "Six strong sessions down. Rest that voice for {days} {day/days} — 
+        you've more than earned it."
+     3. "This week's spotlight is taking a short intermission. It'll be back 
+        on in {days} {day/days}, ready when you are."
+     4. "You showed up every time this week, and it shows. See you back on 
+        stage in {days} {day/days}."
+
+   - Render the chosen message, disable/replace the start button, no countdown 
+     timer — just the static day count from resets_at.
+   - Use existing Tailwind tokens on this page (gold accent, text-primary, 
+     text-muted) — no new colors.
+
+3. Wire WeeklyLimitMessage into app/training/setup/page.tsx where the Start 
+   Practice button currently renders.
+
+
+
+
+   execute these prompts EXACTLY IN THE GIVEN ORDER 6 → 3 → 2 → 4 → 1 → 5: 
+
+   1. Test suite
+Work only in verve-api. Add a pytest suite covering the highest-risk paths — 
+auth and the session/payment-adjacent flows — not full coverage.
+
+Setup:
+- Add pytest, pytest-asyncio, httpx (already in requirements.txt) to a new 
+  requirements-dev.txt.
+- Add tests/conftest.py: a fixture that spins up a test DB (SQLite in-memory 
+  or a throwaway Postgres via testcontainers — pick SQLite unless the app 
+  uses Postgres-only features), overrides get_db in app/db/session.py, and 
+  yields a TestClient from app.main.
+
+Write tests in these files:
+- tests/test_auth.py: signup succeeds and rejects duplicate emails 
+  (app/services/auth_service.py create_user), login succeeds/fails on bad 
+  password, refresh-token rotation succeeds once and fails on reuse 
+  (rotate_refresh_token's reuse-detection branch), password reset issues a 
+  token and consumes it exactly once.
+- tests/test_sessions.py: creating a session respects the weekly session cap 
+  (count_sessions_this_week / the 429 in app/api/v1/sessions.py) — assert the 
+  6th session in a week is rejected and the 7th-day-old one rolls off.
+- tests/test_security.py: unit tests for hash_password/verify_password 
+  truncation at 72 bytes, and decode_token rejecting expired/malformed tokens.
+
+Each test file should be independent and runnable via `pytest tests/`. 
+Show me the file list and conftest.py content before writing the rest.
+2. Redis-backed rate limiter
+Work only in verve-api. Replace the in-memory RateLimiter in 
+app/core/rate_limiter.py with a Redis-backed sliding-window version, same 
+public interface so callers don't change.
+
+- Add redis (already in requirements.txt for Celery) as the backing store — 
+  reuse settings.celery_broker_url's Redis connection details, or add a 
+  separate `redis_url` setting in app/core/config.py if you want rate-limit 
+  data on a different DB index than Celery's queue.
+- Reimplement `check(key, max_attempts, window_seconds) -> bool` using Redis: 
+  a sorted set per key (ZADD with timestamp score, ZREMRANGEBYSCORE to expire 
+  old entries, ZCARD to count, matching the existing sliding-window logic) 
+  OR a simple INCR+EXPIRE fixed-window counter if you want less complexity — 
+  pick sliding window to match current behavior exactly.
+- Keep the module-level `rate_limiter` singleton so app/api/v1/auth.py's 
+  existing `rate_limiter.check(...)` calls need zero changes.
+- Handle Redis connection failure gracefully: log a warning and fail OPEN 
+  (allow the request) rather than crashing the API if Redis is briefly down — 
+  a rate limiter outage shouldn't take down login.
+
+Show me a diff before writing.
+3. Email provider (password reset + transactional)
+Work only in verve-api. Wire up a real email provider, replacing the 
+log-only reset flow.
+
+- Add resend (or sendgrid — pick resend, simpler API) to requirements.txt.
+- Add `resend_api_key: str | None` and `email_from_address: str` to Settings 
+  in app/core/config.py.
+- Create app/services/email_service.py with:
+  - `send_password_reset_email(to_email: str, raw_token: str) -> None` — 
+    builds a reset link using a `frontend_url` setting (add this to config 
+    too) + the raw token, sends via Resend.
+  - `send_welcome_email(to_email: str, display_name: str) -> None`
+  - `send_feedback_ready_email(to_email: str, session_id: str) -> None`
+  All three should no-op with a logged warning if resend_api_key is unset, 
+  so local dev doesn't break.
+- In app/services/auth_service.py's create_password_reset_token: replace the 
+  `if settings.environment != "production": logger.info(...)` block — call 
+  email_service.send_password_reset_email instead, in all environments.
+- In app/api/v1/auth.py's signup route: after user creation, call 
+  send_welcome_email.
+- In app/workers/tasks.py (or run_session_pipeline if you already migrated 
+  off Celery): after the session is marked completed, call 
+  send_feedback_ready_email.
+
+Show me a diff for each file before writing.
+4. Error tracking (Sentry)
+Work only in verve-api. Add Sentry for error tracking.
+
+- Add sentry-sdk[fastapi] to requirements.txt.
+- Add `sentry_dsn: str | None = None` to Settings in app/core/config.py.
+- In app/main.py, before the FastAPI() instantiation: if settings.sentry_dsn 
+  is set, call sentry_sdk.init(dsn=..., environment=settings.environment, 
+  traces_sample_rate=0.1). No-op if unset (local dev).
+- In app/core/middleware.py's RequestIDMiddleware: attach the request_id as 
+  a Sentry tag (sentry_sdk.set_tag("request_id", request_id)) at the start 
+  of dispatch, so every captured error is correlated with the request-ID 
+  logs that already exist.
+- Add SENTRY_DSN to .env.example with a comment on where to get it 
+  (sentry.io project settings).
+
+Show me a diff before writing.
+5. CI/CD
+Work only in the repo root. Add a GitHub Actions workflow, no deploy step yet 
+— just the quality gate.
+
+Create .github/workflows/ci.yml with two jobs, both triggered on pull_request 
+and push to main:
+
+1. api job:
+   - Checkout, setup Python 3.12, `pip install -r verve-api/requirements.txt 
+     -r verve-api/requirements-dev.txt`
+   - Run `ruff check .` (add ruff to requirements-dev.txt if not present — 
+     use default rules, don't invent a custom config)
+   - Run `pytest tests/` from verve-api/
+   - Spin up Postgres as a service container if any test needs it, else skip
+
+2. web job:
+   - Checkout, setup Node (match the version implied by package.json's 
+     engines if present, else Node 20)
+   - `npm ci` in verve-web/
+   - `npm run lint`
+   - `npm run build` (catches type errors since this is a TypeScript project)
+
+Both jobs must fail the workflow (non-zero exit) on any failure — that's the 
+whole point, don't add continue-on-error anywhere.
+
+Show me the full workflow file before creating it.
+6. Secrets/config startup guard
+Work only in verve-api/app/core/config.py and app/main.py. Add one safety 
+check, nothing else.
+
+- In config.py, add a method or standalone function `validate_production_config(settings: Settings) -> None` that raises RuntimeError if settings.environment == "production" AND any of: jwt_secret == "change-me-in-env", database_url contains "localhost", or resend_api_key is None (if you did prompt 3) — each with a distinct, specific error message naming exactly which setting is wrong.
+- Call this function once in app/main.py, right after `settings = get_settings()`, before the FastAPI app is constructed — so a misconfigured production deploy fails at boot, not silently at runtime.
+
+Show me a diff before writing.
+7. Billing + plan gating (Stripe)
+Work only in verve-api. Add Stripe subscriptions and tie the existing weekly 
+session cap to plan tier. Do not build a frontend billing UI yet — API only.
+
+- Add stripe to requirements.txt. Add stripe_secret_key, stripe_webhook_secret, 
+  stripe_price_id_pro to Settings in app/core/config.py.
+- Add `plan: str = "free"` and `stripe_customer_id: str | None = None` columns 
+  to app/models/user.py, plus an alembic migration.
+- Update Settings: rename weekly_session_limit to free_plan_weekly_limit 
+  (default 6), add pro_plan_weekly_limit (default 999, effectively unlimited). 
+  In the session-creation cap check in app/api/v1/sessions.py, use 
+  free_plan_weekly_limit if user.plan == "free" else pro_plan_weekly_limit.
+- Create app/services/billing_service.py:
+  - `create_checkout_session(user: User) -> str` — creates/reuses a Stripe 
+    Customer, returns a Checkout Session URL for the pro price.
+  - `create_billing_portal_session(user: User) -> str` — returns a Stripe 
+    customer portal URL for self-serve plan management.
+- Create app/api/v1/billing.py:
+  - POST /billing/checkout — calls create_checkout_session, returns the URL.
+  - POST /billing/portal — calls create_billing_portal_session.
+  - POST /billing/webhook — verifies the Stripe signature using 
+    stripe_webhook_secret, handles checkout.session.completed (set 
+    user.plan = "pro", store stripe_customer_id), 
+    customer.subscription.deleted (set user.plan = "free").
+- Register the new router in app/api/v1/router.py.
+
+Show me the model diff and migration first, then the rest.
+8. Admin capability
+Work only in verve-api. Add minimal internal admin access — no new frontend, 
+API only, protected by a flag not a separate auth system.
+
+- Add `is_admin: bool = False` to app/models/user.py, plus a migration. Set 
+  it manually via a one-off DB update for yourself — do not build a UI to 
+  grant admin.
+- Add a dependency `require_admin` in app/auth/deps.py: reuses 
+  get_current_user, raises 403 if not user.is_admin.
+- Create app/api/v1/admin.py with routes, all behind require_admin:
+  - GET /admin/users?skip=&limit=&search= — paginated user list with email, 
+    plan, current_rating, created_at, session count.
+  - GET /admin/users/{user_id} — full detail: profile, recent sessions, 
+    plan/billing status.
+  - POST /admin/users/{user_id}/comp — sets plan="pro" without a Stripe 
+    subscription (for refunds/goodwill), with a required `reason: str` field 
+    logged to the existing request-ID logger.
+- Register the router in app/api/v1/router.py.
+
+Show me a diff before writing.
+9. Legal pages + recording consent
+Work only in verve-web. Add static legal pages and a consent checkpoint — 
+placeholder legal text only, flagged clearly for a lawyer to review before 
+launch, not final copy.
+
+- Create app/legal/terms/page.tsx and app/legal/privacy/page.tsx — plain 
+  static pages using the existing typography/layout conventions from other 
+  static content in the app. Privacy policy must explicitly address: audio 
+  recordings are stored, transcribed via a third-party API (OpenAI), and 
+  retained for [placeholder duration] — mark every bracketed placeholder 
+  clearly as TODO for legal review.
+- In components/auth/AuthForm.tsx's signup mode, add a required checkbox: 
+  "I agree to the Terms and Privacy Policy" linking to the two new pages — 
+  block signup submission until checked.
+- Add a one-line consent notice on the recording permission step 
+  (components/recording/MicPermission.tsx): your practice audio is 
+  transcribed by AI to generate feedback — no video, audio only.
+
+Show me a diff before writing.
+10. Support channel
+Work only in verve-web and verve-api. Add a minimal contact/support path — 
+no ticketing system, just a working "reach us" flow.
+
+- verve-api: add POST /api/v1/support endpoint (new file 
+  app/api/v1/support.py) taking {subject, message} from the authenticated 
+  user, sending it via email_service (from prompt 3) to a 
+  support_notification_email setting you add to config.py — reuses the same 
+  Resend integration, no new provider.
+- verve-web: add a simple "Contact support" link in components/shared/Nav.tsx 
+  footer area or account menu, linking to a new app/support/page.tsx with a 
+  short form (subject + message) posting to the new endpoint.
+
+Show me a diff before writing.
+
+Suggested order if you're doing this yourself: 6 → 3 → 2 → 4 → 1 → 5, then billing/admin/legal/support once the core is solid — the first six are what makes the app trustworthy, the rest is what makes it sellable.
