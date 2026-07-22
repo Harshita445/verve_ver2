@@ -1,0 +1,44 @@
+prompts: 
+
+Here's the implementation prompt — reusing your actual design tokens (burgundy/gold dark stage theme) so the scratchpad doesn't look bolted on.
+
+## Implementation prompt
+
+> In the `verve_ver2-main` repo, add an optional prep-phase scratchpad feature.
+>
+> **1. Add a "No prep" option and gate the scratchpad on it.**
+> In `verve-web/app/training/setup/page.tsx`, add `0` to the front of the `prepOptions` array (`[0, 15, 30, 60, 90, 120]`), and update the display logic so `0` renders as **"No prep"** instead of `"0s"` (adjust the ternary that currently does `sec < 60 ? \`${sec}s\` : ...` to special-case `sec === 0`). Do the same in the summary text block near the bottom of the form.
+>
+> **2. Add a scratchpad checkbox, conditionally rendered.**
+> Directly below the Preparation Time selector (not the Speaking Time selector), add a checkbox control:
+> - Label: **"Show a scratchpad during prep"** with helper text: *"Jot down a few words to organize your thoughts. It's just for you, nothing you write is scored or saved."*
+> - Only render this control when `prepSeconds > 0`. When the user selects "No prep" (`0`), hide the checkbox entirely and force local state `scratchpadEnabled` to `false` (there's no prep window to write in, so the option shouldn't exist, not just be disabled).
+> - If the user has the checkbox checked and then switches prep time to `0`, auto-uncheck it (don't leave stale state).
+> - Style the checkbox to match the existing control patterns in this file: use the same `border-border bg-elevated` / `border-gold bg-gold/10 text-gold` selected-state pattern already used for the prep/speak time buttons, just as a checkbox+label row instead of a button group, so it feels native to the page rather than a generic browser checkbox.
+>
+> **3. Thread the flag through session creation.**
+> - Add `scratchpad_enabled: boolean` to the `createSession` call in `setup/page.tsx` and to the corresponding type/function in `verve-web/lib/api/client.ts`.
+> - Add `scratchpad_enabled: bool = False` to `PracticeSessionCreate` in `verve-api/app/schemas/practice_session.py`.
+> - Add a matching nullable/defaulted `scratchpad_enabled: Mapped[bool]` column to `PracticeSession` in `verve-api/app/models/practice_session.py` (`nullable=False, default=False`), with an Alembic migration.
+> - This field only needs to control frontend rendering — the scratchpad's actual text content should **never** be sent to the backend, stored, or included in the transcript/feedback pipeline. It's ephemeral, client-only, and explicitly not scored, matching the helper copy above.
+>
+> **4. Build the scratchpad component.**
+> Create `verve-web/components/recording/ScratchpadNotes.tsx`:
+> - A simple `<textarea>` (or a lightweight bullet-list input if you prefer, but plain freeform text is fine for v1) held in local component state — no persistence, no backend calls.
+> - Visually match the app's existing dark theatrical theme: `bg-elevated` background, `border border-border`, `rounded-card`, `text-text-primary` for input text, `text-text-muted` for placeholder, and a thin `text-gold` label at the top reading "Your notes" in the same uppercase-tracked style used elsewhere (e.g. `text-xs font-medium uppercase tracking-[0.15em] text-gold`). No harsh white input backgrounds — keep it consistent with the dark card surfaces already in use (reference `PromptCard.tsx` and the setup page's `bg-card`/`bg-elevated` cards for the exact look to match).
+> - Give it a fixed reasonable height (e.g. 120–160px) with internal scroll rather than growing the page layout.
+> - Accept a `disabled` or `readOnly` prop for later reuse (see step 6).
+>
+> **5. Render it during the prep countdown.**
+> In `verve-web/app/training/curtain/[sessionId]/page.tsx`:
+> - Fetch the session (this page doesn't currently fetch session data — add that, since you'll need `prep_seconds` for the earlier prep-timer bug fix anyway and `scratchpad_enabled` here).
+> - When `phase === "prep"` and `session.scratchpad_enabled` is true, render `<ScratchpadNotes />` alongside the countdown — position it so the big countdown number stays the visual focus (e.g. countdown centered above, scratchpad docked below or to the side, not competing for primary attention).
+> - When the curtain opens and `phase` moves to `"curtain-opening"`/`"recording"`, unmount the scratchpad (its content simply disappears — this is intentional, it's scaffolding for the prep phase only, not a persistent notes feature).
+>
+> **6. (Optional nice-to-have, flag as a suggestion rather than building unprompted)**: consider letting the scratchpad's last state persist as a small, collapsed, read-only reference chip during the recording phase itself (echoing how real speakers glance at notes) — note this as a possible follow-up rather than implementing it in this pass, since the current ask is specifically a prep-phase-only tool.
+>
+> **7. Verification.**
+> - Confirm the checkbox never appears when prep time is `0`, and that toggling prep time down to `0` after checking it correctly resets `scratchpadEnabled` to `false`.
+> - Confirm scratchpad text is never sent in any network request (check the Network tab / relevant fetch calls) — it should exist purely in React state on the client.
+> - Confirm the scratchpad's visual style reads as native to the app (compare side-by-side against `PromptCard.tsx` and the setup page's card styling) rather than a default unstyled textarea.
+> - Show the full diff of every changed/created file.

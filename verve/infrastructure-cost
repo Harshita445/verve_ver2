@@ -1,0 +1,55 @@
+You could always just load apache/nginx on a computer and whatever other tools you need like php and mysql, register your domain and point it at your home ip and set up your router to port forward http requests to go to that machine. Use freedns, you can have a cron check for changed IP and update your domain ip pointer dynamically. Since you're a software engineer I'm guessing you can handle that and maybe even learn a few things about running a server. I've had a domain with various subdomains hosted right from my home (very low traffic, mostly for my own use) for many years.
+
+
+GitLab, GitHub, Digital Ocean all have free tiers that let you slot a domain in for free and there find. If you search 'static site hosting' you'll find a lot, like CloudFlare Pages etc
+
+AWS Lambda. This will also add a skill to your resume.
+
+Cost : Around 100 Rs per month for simple applications (20 cents for 1 M requests , additional costs for processing time; memory usage. Total around 1.2 USD per month).
+
+https://www.baeldung.com/spring-boot-aws-lambda
+
+https://aws.amazon.com/lambda/pricing/
+
+
+
+The infrastructure side of this can genuinely cost close to $0 while you're pre-revenue. The one thing that can't be fully free is the AI processing (Whisper + GPT-4o-mini calls) — but that's usage-based and tiny, so the fix there is capping it, not finding a free version of it. Here's the concrete mapping onto your existing stack:
+
+The free-tier stack
+Piece	Free option	Notes
+Frontend (Next.js)	Vercel free tier	Built for Next.js, zero config, generous free limits
+API (FastAPI)	Render free web service	Sleeps after inactivity, cold-starts on first request — fine pre-launch, annoying once you have real users
+Database	Neon free tier	Serverless Postgres, scales to zero, works as a drop-in for your DATABASE_URL
+Audio storage	Cloudinary free tier	Your storage_service.py already has a Cloudinary provider built in — just set STORAGE_PROVIDER=cloudinary and fill in the env vars
+Email (password reset, etc.)	Resend or SendGrid free tier	100/day (SendGrid) is plenty at zero-to-small user counts
+Error tracking	Sentry free developer tier	Add this now, costs nothing, saves you real pain later
+Domain	Skip it initially	Use the platform's free subdomain (*.vercel.app, *.onrender.com) until you actually need a custom domain
+
+Note on Railway specifically, since your Dockerfile is written for it: it no longer has a permanent free tier — it's usage-based with a $5/mo Hobby plan minimum now, so I'd point you at Render or Fly.io instead for the free stretch, and only move to Railway once you're paying anyway. 
+PandaStack
+
+One architecture change that saves you real money: drop Celery + Redis for now
+
+This is the biggest cost trap in your current setup. A Celery worker needs an always-on process — nothing free stays always-on for a background worker (free tiers only cover request-driven web services, not idle daemons). Redis itself has a fine free tier (Upstash gives a real free allowance), but the worker process is the problem.
+
+At zero-to-low traffic, you don't need a task queue yet. Replace process_session.delay(...) with FastAPI's built-in BackgroundTasks — it runs the same pipeline function, in-process, right after the HTTP response is sent, no separate worker or Redis required. Your workers/tasks.py logic barely changes; you're just calling the function directly instead of through Celery. This removes an entire piece of paid infrastructure until you actually have concurrent load that needs a real queue.
+
+The one real cost: OpenAI usage
+
+There's no meaningful free tier for Whisper/GPT-4o-mini — it's pay-as-you-go from the first API call. But per session it's pennies, so the move isn't "find it for free," it's make it uncapped-cost-impossible:
+
+Hard per-user daily/weekly session limits (which you already want for the free-tier plan we discussed)
+A global daily spend cap you check before letting a new session start — reject gracefully ("try again tomorrow") rather than silently letting costs run
+Keep an eye on OpenAI's usage dashboard weekly while you're small
+
+If you want to shave even that down, it's worth checking current pricing on Groq — they run Whisper-class transcription and small models very cheaply/quickly — but confirm current numbers yourself before switching, pricing in this space moves often.
+
+What "free" actually costs you (be aware, not scared)
+Cold starts: Render's free web service sleeps after inactivity and takes several seconds to wake up on the next request. Annoying for a demo link, fine for pre-launch.
+Neon free tier storage/compute caps: fine for hundreds of users' worth of session data, not for scale — but you'll have revenue signal long before you hit it.
+No real backups/PITR on most free DB tiers — export a manual pg_dump periodically so a free-tier hiccup can't lose your only user data.
+When to start paying
+
+The honest trigger isn't a date, it's a symptom: cold starts annoying real users, or you're bumping a free-tier storage/compute cap. At that point the upgrade path is additive, not a rebuild — swap Render free → Render paid or Neon free → Neon paid, add Celery+Redis back once you actually have concurrent processing load worth queuing. Nothing above locks you into a provider that makes migrating painful later.
+
+Want me to write the BackgroundTasks swap for your audio.py/tasks.py so you can drop the Celery/Redis dependency now?

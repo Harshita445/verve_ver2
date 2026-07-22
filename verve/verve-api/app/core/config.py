@@ -1,0 +1,109 @@
+import json
+from functools import lru_cache
+from typing import Any
+
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    app_name: str = "verve-api"
+    environment: str = "development"
+
+    database_url: str = "postgresql+psycopg2://verve:verve@localhost:5432/verve"
+
+    jwt_secret: str = "change-me-in-env"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 30
+
+    cors_origins: list[str] = ["http://localhost:3000"]
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: Any) -> list[str]:
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return [str(item) for item in parsed]
+            except json.JSONDecodeError:
+                pass
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        if isinstance(v, list):
+            return [str(item) for item in v]
+        return ["http://localhost:3000"]
+
+    # --- OpenAI / Whisper ---
+    openai_api_key: str | None = None
+    feedback_model: str = "gpt-4o-mini"
+
+    # --- Storage (Cloudinary / S3) ---
+    storage_provider: str = "local"
+    storage_bucket: str | None = None
+    storage_access_key: str | None = None
+    storage_secret_key: str | None = None
+    s3_endpoint_url: str | None = None
+    s3_public_url: str | None = None
+    cloudinary_cloud_name: str | None = None
+    cloudinary_api_key: str | None = None
+    cloudinary_api_secret: str | None = None
+
+    # --- Audio ---
+    max_audio_size_mb: int = 50
+    allowed_audio_formats: list[str] = ["audio/webm", "audio/mp4", "audio/wav", "audio/mpeg", "audio/ogg"]
+
+    # --- Rating ---
+    rating_k_factor: int = 32
+    rating_expected_score_max: int = 100
+
+    # --- Auth ---
+    reset_token_ttl_minutes: int = 30
+
+    # --- Rate Limiting ---
+    rate_limit_login_max: int = 5
+    rate_limit_login_window_seconds: int = 60
+    rate_limit_signup_max: int = 5
+    rate_limit_signup_window_seconds: int = 300
+
+    # --- Weekly Session Cap ---
+    free_plan_weekly_limit: int = 6
+    pro_plan_weekly_limit: int = 999
+
+    # --- Celery / Redis ---
+    celery_broker_url: str = "redis://localhost:6379/0"
+    celery_result_backend: str = "redis://localhost:6379/0"
+
+    # --- Email (Resend) ---
+    resend_api_key: str | None = None
+    email_from_address: str = "noreply@verve-speech.com"
+    frontend_url: str = "http://localhost:3000"
+
+    # --- Stripe ---
+    stripe_secret_key: str | None = None
+    stripe_webhook_secret: str | None = None
+    stripe_price_id_pro: str = ""
+
+    # --- Monitoring ---
+    sentry_dsn: str | None = None
+
+
+def validate_production_config(s: Settings) -> None:
+    if s.environment != "production":
+        return
+    errors: list[str] = []
+    if s.jwt_secret == "change-me-in-env":
+        errors.append("JWT_SECRET must be changed from its default in production")
+    if "localhost" in s.database_url:
+        errors.append("DATABASE_URL must not point to localhost in production")
+    if s.resend_api_key is None:
+        errors.append("RESEND_API_KEY must be set in production for password-reset emails")
+    if errors:
+        raise RuntimeError("Production config validation failed:\n" + "\n".join(errors))
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

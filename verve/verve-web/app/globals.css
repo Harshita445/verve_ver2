@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-background text-text-primary font-body;
+}
+
+@layer utilities {
+  .bg-radial-burgundy {
+    background: radial-gradient(
+      ellipse 60% 50% at 50% 0%,
+      rgba(110, 30, 42, 0.15) 0%,
+      transparent 70%
+    );
+  }
+
+  .bg-radial-gold {
+    background: radial-gradient(
+      ellipse 50% 40% at 50% 0%,
+      rgba(212, 175, 55, 0.08) 0%,
+      transparent 70%
+    );
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}

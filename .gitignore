@@ -1,0 +1,28 @@
+# Node
+node_modules/
+.next/
+npm-debug.log*
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Env files
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Test artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.db
