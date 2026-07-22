@@ -1,0 +1,67 @@
+mplementation prompt
+
+In the verve_ver2-main repo, add magic-link (passwordless email) authentication as an additional login method, without removing or breaking the existing email/password signup, login, and password-reset flows. Magic link becomes the default/primary path shown to users; existing password auth stays fully functional but demoted to a secondary option.
+
+1. User model change: In verve-api/app/models/user.py, make password_hash nullable (Mapped[str | None]). Add a migration for this. Users created via magic link will have password_hash = None until/unless they later set a password (out of scope for now — just don't break on None). Update authenticate_user() in auth_service.py to raise a clear AuthError if password_hash is None when someone tries password login (rather than crashing on verify_password).
+
+2. New model: Create verve-api/app/models/magic_link_token.py, mirroring PasswordResetToken's shape exactly (id, user_id, token_hash — store only the hash, never the raw token — expires_at, used_at, created_at). Give magic links a short TTL, e.g. 15 minutes, via a new magic_link_ttl_minutes setting in config.py (default 15). Add the migration.
+
+3. Email service: Create verve-api/app/services/email_service.py with a send_magic_link_email(to_email: str, link: str) -> None function.
+
+Wire up a real provider (Resend is simplest — one API call, no SMTP config) behind an API key read from .env/config.py (RESEND_API_KEY or similar; add it to .env.example).
+If no API key is configured (e.g. local dev before you've set one up), fall back to logging the link at INFO level exactly like create_password_reset_token already does — so nothing breaks in dev, but flag clearly in the log line that this is a fallback, not production behavior.
+
+4. Service logic in app/services/auth_service.py:
+
+request_magic_link(db, email) -> str: look up the user by email; if none exists, create one (auto-generate a placeholder display_name from the email's local part and initials, password_hash=None, current_rating=1200 — matching what create_user does today minus the password). Create a MagicLinkToken, return the raw token (never store it unhashed).
+verify_magic_link(db, raw_token) -> User: hash the incoming token, look up a non-expired, unused MagicLinkToken row, mark it used_at, return the associated User. Raise AuthError for expired/used/not-found tokens, mirroring the existing reset-password error handling style.
+
+5. New routes in verve-api/app/api/v1/auth.py:
+
+POST /auth/magic-link/request — body { email }, rate-limited the same way as /forgot-password (3 attempts/300s), always returns the same generic message regardless of whether the email existed before, calls request_magic_link, sends the email via email_service.
+POST /auth/magic-link/verify — body { token }, rate-limited like /reset-password, calls verify_magic_link, then issues an access token + sets the refresh cookie exactly like login()/signup() already do (reuse create_token + issue_refresh_token + _set_refresh_cookie), returns TokenResponse.
+
+6. Frontend: In verve-web/components/auth/AuthForm.tsx (or a new sibling component if cleaner), make "Continue with email" (magic link) the primary, prominent call-to-action, with a small "Use a password instead" link below it that reveals/links to the existing password form — don't delete the password form, just don't lead with it. Add:
+
+A lightweight state/screen for "Check your email — we sent a link to {email}" after requesting a link.
+A new route (e.g. app/auth/verify/page.tsx) that reads the token query param, calls /auth/magic-link/verify on mount, stores the returned access token exactly as login/signup do today (check AuthProvider.tsx for the existing pattern and reuse it), and redirects to /dashboard (or /onboarding if onboarding_completed is false) on success, or shows a clear "This link has expired, request a new one" state on failure.
+Update lib/api/client.ts with the two new API calls.
+
+7. Don't touch: /login, /signup, /forgot-password, /reset-password pages and their backend routes stay exactly as they are today, fully working, just no longer the default path a new visitor is funneled toward.
+
+8. Verification: confirm a brand-new email can go from "request link" → check email/log → "verify" → land authenticated on the dashboard without ever touching a password field; confirm an existing password-based user can still log in with their password unaffected; confirm requesting a magic link for an email that already has a password-based account logs them into that same account (don't create a duplicate user row — look up by email first).
+
+
+  then for real email provider, i guess it will have to be deployed first?
+
+  Part A — Manual steps (you do these, ~10–15 minutes)
+
+1. Create a Resend account — go to resend.com, sign up with email/password. No credit card needed for the free tier.
+
+2. Decide on domain verification now vs. later
+
+Fastest path for beta testing: skip domain verification for now and send from Resend's default onboarding@resend.dev address. Important caveat: without a verified domain, Resend only lets you send to the email address you signed up with — not to arbitrary tester emails. That's fine if you're the one clicking every magic link during dev, but it won't work once real testers try to log in with their own emails.
+Better path if you have any domain already (even a cheap one you're not using yet, or a subdomain of your main site): verify it now, since you'll need it anyway once testers are real people. Steps: in the Resend dashboard, go to Domains → Add Domain, enter your domain, and Resend gives you a few DNS records (usually SPF, DKIM, and sometimes a tracking/return-path record). Add those records wherever your DNS is managed (Cloudflare, GoDaddy, Namecheap, etc.), then click Verify DNS Records in Resend. This can take a few minutes to a few hours to propagate depending on your DNS provider.
+I'd verify a domain now — even a throwaway subdomain like mail.yourdomain.com — since the "only send to yourself" limitation will block your actual beta test otherwise.
+
+3. Create an API key — in the dashboard, go to API Keys → Create API Key, give it a name like "Verve backend," and set permission to Sending access (scoped to your domain once verified, if you want to restrict it). Copy the key immediately — Resend only shows it once.
+
+4. Save the key somewhere safe — you'll drop it into your backend's .env file (not committed to git) in the next part.
+
+Part B — Code steps (hand this to your coding LLM)
+
+Once you have the API key (and ideally a verified sending domain), give this prompt:
+
+In the verve-api backend, wire up Resend as the email provider for transactional emails (magic links, password resets going forward).
+
+Add resend to requirements.txt and install it.
+Add resend_api_key: str | None = None and email_from_address: str = "onboarding@resend.dev" to Settings in app/core/config.py, read from the environment. Add both to .env.example with placeholder values and a comment noting email_from_address should be updated to a verified-domain address once one exists (e.g. noreply@yourdomain.com).
+Create app/services/email_service.py with a function send_email(to: str, subject: str, html: str) -> None that:
+If settings.resend_api_key is set, initializes the Resend client with it and calls resend.Emails.send(...) with from=settings.email_from_address, wrapped in a try/except that logs failures without raising (email failures shouldn't crash the request — log at error level and let the caller decide whether that matters for their flow).
+If settings.resend_api_key is not set, fall back to logging the subject/recipient/html at INFO level instead of sending, exactly like the existing create_password_reset_token fallback — so local dev without a key still works.
+Add a specific helper send_magic_link_email(to: str, link: str) -> None in the same file that builds a simple, clean HTML email (plain, on-brand if you want to reuse verve-web's gold/burgundy palette in inline styles, but plain text-first HTML is fine for v1) with a clear "Sign in to Verve" button linking to link, and calls send_email(...).
+Update create_password_reset_token's caller (wherever the reset-password route handler is) to also call send_email now instead of only logging, so the reset flow gets upgraded for free at the same time.
+Confirm nothing breaks if RESEND_API_KEY is absent from the environment — the whole app should still boot and log fallback messages instead of crashing.
+
+This slots directly into the magic-link auth prompt I gave you earlier — that one already calls into an email_service.send_magic_link_email, so once this piece is done, both flows are live together.
+
