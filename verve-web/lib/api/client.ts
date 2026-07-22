@@ -2,6 +2,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export class ApiError extends Error {
   status: number;
+  body?: unknown;
   constructor(message: string, status: number) {
     super(message);
     this.status = status;
@@ -78,7 +79,9 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new ApiError(text || res.statusText, res.status);
+    const err = new ApiError(text || res.statusText, res.status);
+    try { err.body = JSON.parse(text); } catch {}
+    throw err;
   }
 
   if (res.status === 204) {

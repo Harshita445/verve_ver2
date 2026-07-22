@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 
-import { createSession, SessionMode } from "@/lib/api/client";
+import { ApiError, createSession, SessionMode } from "@/lib/api/client";
+import WeeklyLimitMessage from "@/components/shared/WeeklyLimitMessage";
 
 const modeLabels: Record<SessionMode, string> = {
   impromptu: "Impromptu",
@@ -24,6 +25,7 @@ export default function SetupPage() {
   const [prepSeconds, setPrepSeconds] = useState(30);
   const [speakSeconds, setSpeakSeconds] = useState(120);
   const [loading, setLoading] = useState(false);
+  const [limitResetsAt, setLimitResetsAt] = useState<string | null>(null);
 
   async function handleStart() {
     setLoading(true);
@@ -34,7 +36,13 @@ export default function SetupPage() {
         speak_seconds: speakSeconds,
       });
       router.push(`/training/curtain/${session.id}`);
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        const detail = (err.body as any)?.detail;
+        if (detail?.resets_at) {
+          setLimitResetsAt(detail.resets_at);
+        }
+      }
       setLoading(false);
     }
   }
@@ -115,19 +123,25 @@ export default function SetupPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.back()}
-              className="inline-flex h-[52px] items-center rounded-full border border-border bg-transparent px-7 text-base font-medium text-text-secondary transition-all duration-300 hover:border-text-muted"
-            >
-              Back
-            </button>
-            <button
-              onClick={handleStart}
-              disabled={loading}
-              className="flex-1 inline-flex h-[52px] items-center justify-center rounded-full bg-gold px-7 text-base font-semibold text-[#4A131C] transition-all duration-300 hover:translate-y-[-2px] hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? "Creating session..." : "Begin Practice"}
-            </button>
+            {limitResetsAt ? (
+              <WeeklyLimitMessage resetsAt={limitResetsAt} />
+            ) : (
+              <>
+                <button
+                  onClick={() => router.back()}
+                  className="inline-flex h-[52px] items-center rounded-full border border-border bg-transparent px-7 text-base font-medium text-text-secondary transition-all duration-300 hover:border-text-muted"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleStart}
+                  disabled={loading}
+                  className="flex-1 inline-flex h-[52px] items-center justify-center rounded-full bg-gold px-7 text-base font-semibold text-[#4A131C] transition-all duration-300 hover:translate-y-[-2px] hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? "Creating session..." : "Begin Practice"}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </motion.div>
