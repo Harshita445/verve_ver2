@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -14,18 +15,7 @@ class PracticeSessionError(Exception):
 
 import logging
 
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
-
-from app.models.practice_session import PracticeSession, SessionStatus
-from app.models.user import User
-from app.schemas.practice_session import PracticeSessionCreate, PracticeSessionUpdate
-
 logger = logging.getLogger(__name__)
-
-
-class PracticeSessionError(Exception):
-    pass
 
 
 def create_session(
@@ -46,6 +36,28 @@ def create_session(
         db.rollback()
         raise PracticeSessionError("Failed to create session.")
     return session
+
+
+def count_sessions_this_week(
+    db: Session, user_id: uuid.UUID
+) -> tuple[int, datetime | None]:
+    """Count the user's sessions in the rolling 7-day window.
+
+    Returns (count, oldest_created_at) where oldest_created_at is the
+    ``created_at`` of the earliest session in the window, or *None* if
+    there are no sessions.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    rows = (
+        db.query(PracticeSession.created_at)
+        .filter(
+            PracticeSession.user_id == user_id,
+            PracticeSession.created_at >= cutoff,
+        )
+        .order_by(PracticeSession.created_at.asc())
+        .all()
+    )
+    return len(rows), rows[0][0] if rows else None
 
 
 def get_session_for_user(

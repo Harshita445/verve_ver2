@@ -31,20 +31,11 @@ class DatabaseTask(Task):
             self._db = None
 
 
-@celery_app.task(
-    base=DatabaseTask,
-    bind=True,
-    name="process_session",
-    autoretry_for=(Exception,),
-    retry_kwargs={"max_retries": 3, "countdown": 30},
-)
-def process_session(self: DatabaseTask, session_id: str) -> None:
+def run_session_pipeline(session_id: str) -> None:
     """Orchestrate the full audio processing pipeline for a session."""
-
     logger.info("Starting processing pipeline for session %s", session_id)
 
     db: SASession = SessionLocal()
-    self._db = db
 
     try:
         session = db.get(PracticeSession, session_id)
@@ -73,7 +64,7 @@ def process_session(self: DatabaseTask, session_id: str) -> None:
         except Exception as exc:
             logger.exception("Audio download failed for session %s", session_id)
             _fail_session(db, session)
-            raise  # triggers retry
+            raise
 
         # --- Step 2: Transcribe with Whisper ---
         logger.info("Step 2/7: Transcribing audio via Whisper")
@@ -182,7 +173,18 @@ def process_session(self: DatabaseTask, session_id: str) -> None:
         raise
     finally:
         db.close()
-        self._db = None
+
+
+@celery_app.task(
+    base=DatabaseTask,
+    bind=True,
+    name="process_session",
+    autoretry_for=(Exception,),
+    retry_kwargs={"max_retries": 3, "countdown": 30},
+)
+def process_session(self: DatabaseTask, session_id: str) -> None:
+    """Orchestrate the full audio processing pipeline for a session (delegates to run_session_pipeline)."""
+    run_session_pipeline(session_id)
 
 
 def _fail_session(db: SASession, session: PracticeSession) -> None:

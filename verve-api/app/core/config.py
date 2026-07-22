@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     rate_limit_signup_max: int = 5
     rate_limit_signup_window_seconds: int = 300
 
+    # --- Weekly Session Cap ---
+    weekly_session_limit: int = 6
+
     # --- Celery / Redis ---
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/0"

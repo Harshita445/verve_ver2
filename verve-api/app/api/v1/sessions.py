@@ -1,9 +1,11 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.auth.deps import get_current_user
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.communication_rating import CommunicationRating
 from app.models.feedback_report import FeedbackReport
@@ -29,6 +31,7 @@ from app.schemas.practice_session import (
 )
 from app.services.practice_session_service import (
     PracticeSessionError,
+    count_sessions_this_week,
     create_session,
     get_session_for_user,
     list_sessions_for_user,
@@ -37,6 +40,21 @@ from app.services.practice_session_service import (
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
+settings = get_settings()
+
+
+def _check_weekly_cap(db: Session, user: User) -> None:
+    count, oldest_at = count_sessions_this_week(db, user.id)
+    if count >= settings.weekly_session_limit:
+        resets_at = (oldest_at + timedelta(days=7)) if oldest_at else (datetime.now(timezone.utc) + timedelta(days=7))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "message": "Weekly practice limit reached — resets on a rolling 7-day basis.",
+                "resets_at": resets_at.isoformat(),
+            },
+        )
+
 
 @router.post("", response_model=PracticeSessionRead, status_code=status.HTTP_201_CREATED)
 def create_practice_session(
@@ -44,6 +62,7 @@ def create_practice_session(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PracticeSessionRead:
+    _check_weekly_cap(db, current_user)
     return create_session(db, current_user, payload)
 
 
@@ -53,6 +72,7 @@ def start_session(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PracticeSessionStartResponse:
+    _check_weekly_cap(db, current_user)
     session = create_session(db, current_user, payload)
     return PracticeSessionStartResponse(session_id=session.id, status=session.status.value)
 

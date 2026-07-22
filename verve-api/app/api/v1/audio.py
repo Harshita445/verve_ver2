@@ -2,7 +2,7 @@ import logging
 import tempfile
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.auth.deps import get_current_user
@@ -13,7 +13,7 @@ from app.models.practice_session import PracticeSession, SessionStatus
 from app.models.user import User
 from app.schemas.feedback import AudioUploadResponse
 from app.services.storage_service import StorageService
-from app.workers.tasks import process_session
+from app.workers.tasks import run_session_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,7 @@ def _validate_audio_magic(file_bytes: bytes) -> str | None:
 def upload_audio(
     session_id: uuid.UUID,
     file: UploadFile,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AudioUploadResponse:
@@ -133,7 +134,7 @@ def upload_audio(
             detail="Failed to save audio metadata",
         )
 
-    process_session.delay(str(session_id))
+    background_tasks.add_task(run_session_pipeline, str(session_id))
 
     return AudioUploadResponse(
         audio_file_id=audio_file.id,
