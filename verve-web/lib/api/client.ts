@@ -295,6 +295,7 @@ export type PracticeSession = {
   prompt_format: string | null;
   debate_side: string | null;
   hints_enabled: boolean;
+  scratchpad_enabled: boolean;
   prep_seconds: number;
   speak_seconds: number;
   status: SessionStatus;
@@ -314,6 +315,7 @@ export type SessionCreatePayload = {
   prompt_text?: string | null;
   prompt_style?: string | null;
   hints_enabled?: boolean;
+  scratchpad_enabled?: boolean;
   prep_seconds?: number;
   speak_seconds?: number;
 };

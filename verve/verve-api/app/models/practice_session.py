@@ -47,6 +47,7 @@ class PracticeSession(Base):
     prompt_format: Mapped[str | None] = mapped_column(String(32), nullable=True)
     debate_side: Mapped[str | None] = mapped_column(String(8), nullable=True)
     hints_enabled: Mapped[bool] = mapped_column(default=False)
+    scratchpad_enabled: Mapped[bool] = mapped_column(default=False)
     prep_seconds: Mapped[int] = mapped_column(Integer, default=30)
     speak_seconds: Mapped[int] = mapped_column(Integer, default=120)
     status: Mapped[SessionStatus] = mapped_column(

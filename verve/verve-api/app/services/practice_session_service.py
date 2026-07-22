@@ -42,6 +42,7 @@ def create_session(
         prompt_format=prompt_format,
         debate_side=debate_side,
         hints_enabled=payload.hints_enabled,
+        scratchpad_enabled=payload.scratchpad_enabled,
         prep_seconds=payload.prep_seconds,
         speak_seconds=payload.speak_seconds,
     )

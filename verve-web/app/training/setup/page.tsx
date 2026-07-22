@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import Link from "next/link";
 
 import { ApiError, createSession, SessionMode } from "@/lib/api/client";
 import WeeklyLimitMessage from "@/components/shared/WeeklyLimitMessage";
@@ -26,7 +25,7 @@ const FREESTYLE_STYLES = [
   { id: "association_chain" as const, label: "Association Chain", desc: "Free-associate from a starting word" },
 ];
 
-const prepOptions = [15, 30, 60, 90, 120];
+const prepOptions = [0, 15, 30, 60, 90, 120];
 const speakOptions = [60, 90, 120, 180, 300];
 
 export default function SetupPage() {
@@ -38,8 +37,15 @@ export default function SetupPage() {
   const [speakSeconds, setSpeakSeconds] = useState(120);
   const [promptStyle, setPromptStyle] = useState<string | null>(null);
   const [hintsEnabled, setHintsEnabled] = useState(false);
+  const [scratchpadEnabled, setScratchpadEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [limitResetsAt, setLimitResetsAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (prepSeconds === 0) {
+      setScratchpadEnabled(false);
+    }
+  }, [prepSeconds]);
 
   async function handleStart() {
     setLoading(true);
@@ -48,6 +54,7 @@ export default function SetupPage() {
         mode,
         prompt_style: mode === "freestyle" ? promptStyle : null,
         hints_enabled: hintsEnabled,
+        scratchpad_enabled: scratchpadEnabled,
         prep_seconds: prepSeconds,
         speak_seconds: speakSeconds,
       });
@@ -99,11 +106,44 @@ export default function SetupPage() {
                       : "border-border bg-elevated text-text-secondary hover:border-text-muted"
                   }`}
                 >
-                  {sec < 60 ? `${sec}s` : `${sec / 60}m`}
+                  {sec === 0 ? "No prep" : sec < 60 ? `${sec}s` : `${sec / 60}m`}
                 </button>
               ))}
             </div>
           </div>
+
+          {prepSeconds > 0 && (
+            <div className="mb-8">
+              <button
+                onClick={() => setScratchpadEnabled(!scratchpadEnabled)}
+                className={`flex w-full items-center gap-4 rounded-lg border p-4 text-left transition-all duration-200 ${
+                  scratchpadEnabled
+                    ? "border-gold bg-gold/10 text-gold"
+                    : "border-border bg-elevated text-text-secondary hover:border-text-muted"
+                }`}
+              >
+                <span
+                  className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                    scratchpadEnabled
+                      ? "border-gold bg-gold"
+                      : "border-border bg-transparent"
+                  }`}
+                >
+                  {scratchpadEnabled && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none" stroke="#4A131C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="1,4 3.5,7 9,1" />
+                    </svg>
+                  )}
+                </span>
+                <div>
+                  <span className="text-sm font-medium">Show a scratchpad during prep</span>
+                  <p className="mt-0.5 text-xs opacity-70">
+                    Jot down a few words to organize your thoughts. It's just for you, nothing you write is scored or saved.
+                  </p>
+                </div>
+              </button>
+            </div>
+          )}
 
           <div className="mb-8">
             <label className="mb-4 block text-lg font-medium text-text-primary">
@@ -180,13 +220,14 @@ export default function SetupPage() {
           <div className="mb-8 rounded-lg border border-border bg-elevated p-4">
             <p className="text-sm text-text-muted">
               <span className="font-medium text-text-primary">Summary:</span>{" "}
-              {prepSeconds < 60 ? `${prepSeconds}s` : `${prepSeconds / 60}m`} preparation
+              {prepSeconds === 0 ? "No prep" : prepSeconds < 60 ? `${prepSeconds}s` : `${prepSeconds / 60}m`} preparation
               &middot;{" "}
               {speakSeconds < 60
                 ? `${speakSeconds}s`
                 : `${Math.floor(speakSeconds / 60)}m ${speakSeconds % 60}s`}{" "}
               speaking
               {hintsEnabled && " · Live hints on"}
+              {scratchpadEnabled && " · Scratchpad on"}
             </p>
           </div>
 

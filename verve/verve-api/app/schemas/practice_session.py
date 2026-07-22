@@ -11,7 +11,8 @@ class PracticeSessionCreate(BaseModel):
     prompt_text: str | None = None
     prompt_style: str | None = None
     hints_enabled: bool = False
-    prep_seconds: int = Field(default=30, ge=10, le=300)
+    scratchpad_enabled: bool = False
+    prep_seconds: int = Field(default=30, ge=0, le=300)
     speak_seconds: int = Field(default=120, ge=30, le=600)
 
 
@@ -29,6 +30,7 @@ class PracticeSessionRead(BaseModel):
     prompt_format: str | None
     debate_side: str | None
     hints_enabled: bool
+    scratchpad_enabled: bool
     prep_seconds: int
     speak_seconds: int
     status: SessionStatus

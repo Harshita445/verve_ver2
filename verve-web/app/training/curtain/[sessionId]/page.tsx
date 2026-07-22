@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import CurtainOverlay from "@/components/curtain/CurtainOverlay";
 import StageReveal from "@/components/curtain/StageReveal";
+import ScratchpadNotes from "@/components/recording/ScratchpadNotes";
 import { getSession, updateSession } from "@/lib/api/client";
 
 export default function CurtainPage() {
@@ -19,12 +20,14 @@ export default function CurtainPage() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [debateSide, setDebateSide] = useState<string | null>(null);
   const [sessionMode, setSessionMode] = useState<string | null>(null);
+  const [scratchpadEnabled, setScratchpadEnabled] = useState(false);
 
   useEffect(() => {
     getSession(sessionId).then((s) => {
       setCountdown(s.prep_seconds);
       setDebateSide(s.debate_side);
       setSessionMode(s.mode);
+      setScratchpadEnabled(s.scratchpad_enabled);
     }).catch(() => {
       setCountdown(5);
     });
@@ -37,16 +40,6 @@ export default function CurtainPage() {
       return;
     }
     const timer = setTimeout(() => setCountdown((c) => (c as number) - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [phase, countdown]);
-
-  useEffect(() => {
-    if (phase !== "prep") return;
-    if (countdown <= 0) {
-      setPhase("curtain-opening");
-      return;
-    }
-    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [phase, countdown]);
 
@@ -75,7 +68,7 @@ export default function CurtainPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.3 } }}
-            className="text-center"
+            className="flex w-full max-w-lg flex-col items-center"
           >
             <motion.p
               initial={{ opacity: 0, y: -10 }}
@@ -110,6 +103,17 @@ export default function CurtainPage() {
               >
                 You are arguing <span className="uppercase">{debateSide}</span> this position
               </motion.p>
+            )}
+
+            {scratchpadEnabled && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.4 }}
+                className="mt-8 w-full"
+              >
+                <ScratchpadNotes />
+              </motion.div>
             )}
         )}
       </AnimatePresence>
