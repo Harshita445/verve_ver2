@@ -109,7 +109,10 @@ def rotate_refresh_token(db: Session, raw_token: str) -> tuple[User, str]:
         _revoke_all_refresh_tokens(db, user_id)
         raise AuthError("Refresh token reuse detected; all sessions revoked.")
 
-    if row.expires_at < datetime.now(timezone.utc):
+    expires = row.expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if expires < datetime.now(timezone.utc):
         raise AuthError("Invalid or expired refresh token.")
 
     user = db.get(User, user_id)
@@ -205,7 +208,10 @@ def reset_password(db: Session, raw_token: str, new_password: str) -> None:
     if row is None or row.used_at is not None:
         raise AuthError("Invalid or expired reset token.")
 
-    if row.expires_at < datetime.now(timezone.utc):
+    expires = row.expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if expires < datetime.now(timezone.utc):
         raise AuthError("Invalid or expired reset token.")
 
     user = db.get(User, row.user_id)

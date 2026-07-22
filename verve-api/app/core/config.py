@@ -72,6 +72,9 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/0"
 
+    # --- Monitoring ---
+    sentry_dsn: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -85,7 +85,7 @@ def update_session(
     for field, value in update_data.items():
         setattr(session, field, value)
 
-    if payload.status == SessionStatus.complete and session.completed_at is None:
+    if payload.status == SessionStatus.completed and session.completed_at is None:
         from datetime import datetime, timezone
         session.completed_at = datetime.now(timezone.utc)
 
