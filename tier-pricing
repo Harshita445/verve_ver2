@@ -1,0 +1,26 @@
+Per-session AI cost, three scenarios
+
+Assuming a ~2-minute average session (your setup screen offers 60s–300s speaking time):
+
+Scenario	Transcription	Feedback generation	Total/session
+A — do nothing (current code: whisper-1 + full 8-skill/timeline/annotation feedback)	$0.012 (₹1.15)	$0.0010 (₹0.10)	$0.013 (₹1.25)
+B — swap transcription model only (gpt-4o-mini-transcribe)	$0.006 (₹0.58)	$0.0010 (₹0.10)	$0.007 (₹0.67)
+C — swap model + trim feedback output (~40% shorter skills/timeline/annotations)	$0.006 (₹0.58)	$0.0006 (₹0.06)	$0.0066 (₹0.63)
+
+The honest takeaway: trimming the feedback engine barely moves the number. Looking at your actual FEEDBACK_PROMPT, the whole structured JSON response — 8 skills, timeline, annotations, stats — only costs about a tenth of a cent on gpt-4o-mini, because output tokens are cheap and the response isn't that long in absolute terms. Transcription is 85–90% of your AI cost, not feedback generation. That also means my "the feedback call is the bigger lever" comment last message was off — the code shows otherwise. Scenario B (just the model swap, zero other work) captures nearly all the achievable savings.
+
+What that means per tier, per month (India pricing)
+
+Using your weekly caps (Free 6, Plus 12, Pro 30) × ~4.33 weeks/month, at full usage (worst case — the number if every user maxes out their cap every week):
+
+Tier	Price/mo	Sessions/mo	Cost — Scenario A	Cost — Scenario B	Cost — Scenario C	Margin (B)
+Free	₹0	~26	₹32.5	₹17.4	₹16.5	— (acquisition cost)
+Plus	₹249	~52	₹65	₹35	₹33	~86%
+Pro	₹599	~130	₹162	₹87	₹82	~85%
+
+Even in Scenario A — the code exactly as it sits in the zip right now, no changes at all — your margins are ~74% on Plus and ~73% on Pro at full usage. I'd overestimated your per-session cost earlier in this conversation (I was working off a rough $0.05–0.08 guess before I'd actually read your prompt file); the real number is roughly 5–10x cheaper than that.
+
+Recommendation
+Do the transcription model swap (the one-line prompt from last message) — it's free effort, cuts your worst-case cost by ~45%, and turns "healthy margin" into "very healthy margin."
+Don't bother trimming the feedback engine. It saves you roughly ₹2–5 a month per maxed-out Pro user — not worth the engineering time or the risk of degrading the feedback quality that's actually your product's differentiator (the structure/evidence/persuasion scoring we talked about earlier).
+Your India pricing (₹249 / ₹599) is already fair and comfortably sustainable — you don't need to lower it to make margins work; if anything you have room to run occasional discounts or a cheaper intro tier without going underwater.
