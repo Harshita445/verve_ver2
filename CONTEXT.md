@@ -15,17 +15,18 @@ not listed here as "Implemented" does not exist in the codebase.
 - UserProfile model + endpoints (GET/PUT /profile)
 - Onboarding fields on User model (`onboarding_completed`, `onboarding_step`)
 
-### Done this session — session lifecycle
-- **`app/models/practice_session.py`** — added `prep_seconds` (int, default 30) and
-  `speak_seconds` (int, default 120) columns.
-- **`app/schemas/practice_session.py`** — added `PracticeSessionUpdate`, `PracticeSessionListRead`;
-  `PracticeSessionCreate` now accepts `prep_seconds` and `speak_seconds`;
-  `PracticeSessionRead` exposes both fields.
-- **`app/services/practice_session_service.py`** — added `list_sessions_for_user` (paginated),
-  `update_session` (state transitions, sets completed_at on complete).
-- **`app/api/v1/sessions.py`** — added `GET /sessions` (list, paginated),
-  `PATCH /sessions/{id}` (update state).
-- **`alembic/versions/e7f8g9h0i1j2_add_prep_and_speak_seconds_to_sessions.py`** (new) — migration.
+### Done this session — prompt bank + impromptu→freestyle rename + model fields
+- **`app/data/prompts.py`** (new) — `PROMPT_BANK` with freestyle (one_word, full, creative subtypes),
+  debate, interview, storytelling prompts; each entry has `text` and `format`.
+- **`app/models/practice_session.py`** — renamed `SessionMode.impromptu` → `SessionMode.freestyle`;
+  added `prompt_format`, `debate_side`, `hints_enabled` columns.
+- **`app/schemas/practice_session.py`** — `PracticeSessionCreate` accepts `prompt_style` and `hints_enabled`;
+  `PracticeSessionRead` exposes `prompt_format`, `debate_side`, `hints_enabled`.
+- **`app/schemas/challenges.py`** — added `prompt_format` to `DailyChallengeRead`.
+- **`app/api/v1/challenges.py`** — now sources prompts from `PROMPT_BANK`; includes `prompt_format` in response.
+- **`app/services/practice_session_service.py`** — `create_session` auto-assigns `debate_side` ("for"/"against")
+  for debate mode, resolves `prompt_format` from `PROMPT_BANK`.
+- **`alembic/versions/i1j2k3l4m5n6_rename_impromptu_to_freestyle_and_add_columns.py`** (new) — migration.
 
 ## 2. Frontend — Implemented
 
@@ -118,6 +119,9 @@ not listed here as "Implemented" does not exist in the codebase.
 | Dashboard UI (rating, session count, streak, quick-start) | Implemented |
 | Practice session create + get-by-id | Implemented |
 | Practice session list + update (state transitions) | Implemented |
+| Prompt bank (freestyle subtypes, debate, interview, storytelling) | Implemented |
+| SessionMode impromptu → freestyle rename | Implemented |
+| prompt_format / debate_side / hints_enabled on sessions | Implemented |
 | Landing page hero with stage SVG | Implemented |
 | Training modes section | Implemented |
 | Training mode selection page | Implemented |

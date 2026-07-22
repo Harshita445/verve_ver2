@@ -6,7 +6,7 @@ import { BoltIcon, ScaleIcon, MicIcon, BookIcon } from "@/components/landing/Mod
 const modes = [
   {
     icon: <BoltIcon />,
-    title: "Impromptu",
+    title: "Freestyle",
     description:
       "Think clearly under pressure. Receive unexpected prompts and organize your thoughts in real time.",
   },
@@ -55,7 +55,7 @@ export default function Home() {
               </h1>
 
               <p className="mt-6 max-w-2xl text-lg leading-relaxed text-text-secondary md:text-xl">
-                Practice impromptu speaking, interviews, debates, and
+                Practice freestyle speaking, interviews, debates, and
                 storytelling through structured speaking sessions designed to
                 improve how you think, organize ideas, and communicate with
                 confidence.
@@ -77,7 +77,7 @@ export default function Home() {
               </div>
 
               <div className="mt-8 flex items-center justify-center gap-4 text-sm font-medium text-text-muted lg:justify-start">
-                <span>Impromptu</span>
+                <span>Freestyle</span>
                 <span className="text-border">•</span>
                 <span>Debate</span>
                 <span className="text-border">•</span>

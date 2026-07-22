@@ -5,8 +5,8 @@ import { motion } from "framer-motion";
 
 const modes = [
   {
-    id: "impromptu" as const,
-    title: "Impromptu",
+    id: "freestyle" as const,
+    title: "Freestyle",
     description: "Think clearly under pressure. Receive unexpected prompts and organize your thoughts in real time.",
     benefits: ["Quick thinking", "Structured responses", "Mental agility"],
   },

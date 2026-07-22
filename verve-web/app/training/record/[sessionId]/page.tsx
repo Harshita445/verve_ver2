@@ -12,7 +12,7 @@ import MicPermission from "@/components/recording/MicPermission";
 import Skeleton from "@/components/shared/Skeleton";
 
 const FALLBACK_PROMPTS: Record<string, string> = {
-  impromptu: "Describe a failure that changed your perspective.",
+  freestyle: "Describe a time you had to make a difficult decision with limited information.",
   debate: "Social media does more harm than good. Defend or oppose this statement.",
   interview: "Tell me about a time you had to lead a team through a difficult situation.",
   storytelling: "Recall a moment when you felt completely out of your depth. What happened?",
@@ -33,6 +33,9 @@ export default function RecordingPage() {
   const [sessionData, setSessionData] = useState<{
     mode: string;
     prompt_text: string | null;
+    prompt_format: string | null;
+    debate_side: string | null;
+    hints_enabled: boolean;
     prep_seconds: number;
     speak_seconds: number;
   } | null>(null);
@@ -51,14 +54,20 @@ export default function RecordingPage() {
         setSessionData({
           mode: s.mode,
           prompt_text: s.prompt_text,
+          prompt_format: s.prompt_format,
+          debate_side: s.debate_side,
+          hints_enabled: s.hints_enabled,
           prep_seconds: s.prep_seconds,
           speak_seconds: s.speak_seconds,
         });
       })
       .catch(() => {
         setSessionData({
-          mode: "impromptu",
+          mode: "freestyle",
           prompt_text: null,
+          prompt_format: null,
+          debate_side: null,
+          hints_enabled: false,
           prep_seconds: 30,
           speak_seconds: 120,
         });
@@ -172,10 +181,13 @@ export default function RecordingPage() {
     );
   }
 
-  const mode = sessionData?.mode ?? "impromptu";
-  const prompt = sessionData?.prompt_text ?? FALLBACK_PROMPTS[mode] ?? FALLBACK_PROMPTS.impromptu;
+  const mode = sessionData?.mode ?? "freestyle";
+  const prompt = sessionData?.prompt_text ?? FALLBACK_PROMPTS[mode] ?? FALLBACK_PROMPTS.freestyle;
   const prepSeconds = sessionData?.prep_seconds ?? 30;
   const speakSeconds = sessionData?.speak_seconds ?? 120;
+  const promptFormat = sessionData?.prompt_format;
+  const debateSide = sessionData?.debate_side;
+  const hintsEnabled = sessionData?.hints_enabled ?? false;
   const remainingMs = Math.max(0, speakMs - recorder.elapsedMs);
   const timer = formatTimerValue(remainingMs);
   const elapsedTimer = formatTimerValue(recorder.elapsedMs);
@@ -219,6 +231,8 @@ export default function RecordingPage() {
             <PromptCard
               mode={mode}
               prompt={prompt}
+              promptFormat={promptFormat}
+              debateSide={debateSide}
               prepSeconds={prepSeconds}
               speakSeconds={speakSeconds}
             />

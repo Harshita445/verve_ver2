@@ -21,10 +21,27 @@ logger = logging.getLogger(__name__)
 def create_session(
     db: Session, user: User, payload: PracticeSessionCreate
 ) -> PracticeSession:
+    debate_side: str | None = None
+    if payload.mode.value == "debate":
+        import random
+        debate_side = random.choice(["for", "against"])
+
+    prompt_format: str | None = None
+    if payload.prompt_style:
+        from app.data.prompts import PROMPT_BANK
+        bank = PROMPT_BANK.get(payload.mode, [])
+        for entry in bank:
+            if entry["text"] == payload.prompt_text:
+                prompt_format = entry.get("format")
+                break
+
     session = PracticeSession(
         user_id=user.id,
         mode=payload.mode,
         prompt_text=payload.prompt_text,
+        prompt_format=prompt_format,
+        debate_side=debate_side,
+        hints_enabled=payload.hints_enabled,
         prep_seconds=payload.prep_seconds,
         speak_seconds=payload.speak_seconds,
     )

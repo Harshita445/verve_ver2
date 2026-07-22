@@ -9,6 +9,8 @@ from app.models.practice_session import SessionMode, SessionStatus
 class PracticeSessionCreate(BaseModel):
     mode: SessionMode
     prompt_text: str | None = None
+    prompt_style: str | None = None
+    hints_enabled: bool = False
     prep_seconds: int = Field(default=30, ge=10, le=300)
     speak_seconds: int = Field(default=120, ge=30, le=600)
 
@@ -24,6 +26,9 @@ class PracticeSessionRead(BaseModel):
     user_id: uuid.UUID
     mode: SessionMode
     prompt_text: str | None
+    prompt_format: str | None
+    debate_side: str | None
+    hints_enabled: bool
     prep_seconds: int
     speak_seconds: int
     status: SessionStatus

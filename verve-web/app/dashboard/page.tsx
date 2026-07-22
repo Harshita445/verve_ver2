@@ -155,7 +155,7 @@ export default function DashboardPage() {
           </p>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { name: "Impromptu", href: "/training?mode=impromptu" },
+              { name: "Freestyle", href: "/training?mode=freestyle" },
               { name: "Debate", href: "/training?mode=debate" },
               { name: "Interview", href: "/training?mode=interview" },
               { name: "Storytelling", href: "/training?mode=storytelling" },

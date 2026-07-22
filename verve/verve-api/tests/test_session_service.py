@@ -27,7 +27,7 @@ class TestCreateSession:
         assert session.status == SessionStatus.pending
 
     def test_defaults(self, db: Session, test_user: User):
-        payload = PracticeSessionCreate(mode=SessionMode.impromptu)
+        payload = PracticeSessionCreate(mode=SessionMode.freestyle)
         session = create_session(db, test_user, payload)
         assert session.prep_seconds == 30
         assert session.speak_seconds == 120
@@ -60,7 +60,7 @@ class TestListSessions:
 
     def test_pagination(self, db: Session, test_user: User):
         for i in range(5):
-            db.add(PracticeSession(user_id=test_user.id, mode=SessionMode.impromptu))
+            db.add(PracticeSession(user_id=test_user.id, mode=SessionMode.freestyle))
         db.commit()
         sessions, total = list_sessions_for_user(db, test_user, skip=0, limit=3)
         assert total == 5

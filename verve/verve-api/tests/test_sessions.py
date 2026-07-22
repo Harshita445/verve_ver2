@@ -20,7 +20,7 @@ def _make_sessions(db: Session, user: User, count: int, days_ago: list[float] | 
         age = days_ago[i] if days_ago else 0
         session = PracticeSession(
             user_id=user.id,
-            mode=SessionMode.impromptu,
+            mode=SessionMode.freestyle,
             prompt_text=f"Session {i}",
             prep_seconds=30,
             speak_seconds=120,
@@ -34,12 +34,12 @@ def _make_sessions(db: Session, user: User, count: int, days_ago: list[float] | 
 class TestWeeklyCap:
     async def test_under_limit_allowed(self, client: AsyncClient, test_user: User, db: Session, auth_headers: dict[str, str]) -> None:
         _make_sessions(db, test_user, settings.free_plan_weekly_limit - 1)
-        resp = await client.post("/api/v1/sessions", json={"mode": "impromptu"}, headers=auth_headers)
+        resp = await client.post("/api/v1/sessions", json={"mode": "freestyle"}, headers=auth_headers)
         assert resp.status_code == 201
 
     async def test_at_limit_rejected(self, client: AsyncClient, test_user: User, db: Session, auth_headers: dict[str, str]) -> None:
         _make_sessions(db, test_user, settings.free_plan_weekly_limit)
-        resp = await client.post("/api/v1/sessions", json={"mode": "impromptu"}, headers=auth_headers)
+        resp = await client.post("/api/v1/sessions", json={"mode": "freestyle"}, headers=auth_headers)
         assert resp.status_code == 429
         detail = resp.json()["detail"]
         assert "resets_at" in detail
@@ -49,7 +49,7 @@ class TestWeeklyCap:
         _make_sessions(db, test_user, 5, days_ago=[0, 0, 0, 0, 0])
         old = PracticeSession(
             user_id=test_user.id,
-            mode=SessionMode.impromptu,
+            mode=SessionMode.freestyle,
             prompt_text="Old session",
             prep_seconds=30,
             speak_seconds=120,
@@ -59,6 +59,6 @@ class TestWeeklyCap:
         db.add(old)
         db.commit()
         # We should be at limit - 5 recent + 1 old (just outside the window)
-        resp = await client.post("/api/v1/sessions", json={"mode": "impromptu"}, headers=auth_headers)
+        resp = await client.post("/api/v1/sessions", json={"mode": "freestyle"}, headers=auth_headers)
         # The old one is outside the 7-day window, so the count is 5, and a new one is allowed
         assert resp.status_code == 201

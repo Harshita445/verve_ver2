@@ -58,7 +58,7 @@ FEEDBACK_PROMPT = """You are a communication coach with decades of experience. A
   - avg_response_length_words: float (or null)
 
 - next_challenge:
-  - mode: "impromptu" | "debate" | "interview" | "storytelling"
+  - mode: "freestyle" | "debate" | "interview" | "storytelling"
   - difficulty: "beginner" | "intermediate" | "advanced"
   - reason: string (why this challenge is recommended for this user)
 
@@ -79,7 +79,7 @@ class FeedbackEngine:
         self.model = settings.feedback_model or "gpt-4o-mini"
 
     def analyze(
-        self, transcript: str, mode: str = "impromptu", prompt: str | None = None
+        self, transcript: str, mode: str = "freestyle", prompt: str | None = None
     ) -> dict[str, Any]:
         if not self.api_key:
             raise FeedbackEngineError("OpenAI API key is not configured")

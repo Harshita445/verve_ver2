@@ -5,18 +5,18 @@ from httpx import AsyncClient
 class TestCreateSession:
     async def test_success(self, client: AsyncClient, auth_headers):
         resp = await client.post("/api/v1/sessions", json={
-            "mode": "impromptu",
+            "mode": "freestyle",
             "prompt_text": "Test prompt",
             "prep_seconds": 30,
             "speak_seconds": 120,
         }, headers=auth_headers)
         assert resp.status_code == 201
         data = resp.json()
-        assert data["mode"] == "impromptu"
+        assert data["mode"] == "freestyle"
         assert data["status"] == "pending"
 
     async def test_requires_auth(self, client: AsyncClient):
-        resp = await client.post("/api/v1/sessions", json={"mode": "impromptu"})
+        resp = await client.post("/api/v1/sessions", json={"mode": "freestyle"})
         assert resp.status_code == 401
 
     async def test_invalid_mode(self, client: AsyncClient, auth_headers):

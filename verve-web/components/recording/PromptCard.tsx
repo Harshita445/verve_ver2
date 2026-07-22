@@ -3,11 +3,13 @@
 type Props = {
   mode: string;
   prompt: string;
+  promptFormat?: string | null;
+  debateSide?: string | null;
   prepSeconds: number;
   speakSeconds: number;
 };
 
-export default function PromptCard({ mode, prompt, prepSeconds, speakSeconds }: Props) {
+export default function PromptCard({ mode, prompt, promptFormat, debateSide, prepSeconds, speakSeconds }: Props) {
   return (
     <div className="rounded-card border border-border bg-card/80 p-8 text-center shadow-soft backdrop-blur-sm">
       <div className="mb-4 flex items-center justify-center gap-3">
@@ -17,6 +19,16 @@ export default function PromptCard({ mode, prompt, prepSeconds, speakSeconds }: 
         <span className="rounded-full border border-border bg-elevated px-3 py-1 text-xs font-medium text-text-muted">
           Intermediate
         </span>
+        {debateSide && (
+          <span className="rounded-full border border-gold/20 bg-gold/5 px-3 py-1 text-xs font-medium uppercase text-gold">
+            {debateSide}
+          </span>
+        )}
+        {promptFormat && !debateSide && (
+          <span className="rounded-full border border-border bg-elevated px-3 py-1 text-xs font-medium text-text-muted">
+            {promptFormat.replace(/_/g, " ")}
+          </span>
+        )}
       </div>
 
       <p className="font-heading text-2xl font-medium leading-relaxed text-text-primary md:text-3xl">

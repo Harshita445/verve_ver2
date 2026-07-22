@@ -202,7 +202,7 @@ export function updateOnboarding(payload: OnboardingUpdatePayload) {
   });
 }
 
-export type SessionMode = "impromptu" | "debate" | "interview" | "storytelling";
+export type SessionMode = "freestyle" | "debate" | "interview" | "storytelling";
 export type SessionStatus = "pending" | "uploading" | "recording" | "processing" | "transcribing" | "analyzing" | "completed" | "failed";
 
 export type TimelineEntry = {
@@ -292,6 +292,9 @@ export type PracticeSession = {
   user_id: string;
   mode: SessionMode;
   prompt_text: string | null;
+  prompt_format: string | null;
+  debate_side: string | null;
+  hints_enabled: boolean;
   prep_seconds: number;
   speak_seconds: number;
   status: SessionStatus;
@@ -309,6 +312,8 @@ export type SessionListResponse = {
 export type SessionCreatePayload = {
   mode: SessionMode;
   prompt_text?: string | null;
+  prompt_style?: string | null;
+  hints_enabled?: boolean;
   prep_seconds?: number;
   speak_seconds?: number;
 };
@@ -490,6 +495,7 @@ export function getAchievements() {
 export type DailyChallenge = {
   mode: string;
   prompt_text: string;
+  prompt_format?: string | null;
   difficulty: string;
   prep_seconds: number;
   speak_seconds: number;

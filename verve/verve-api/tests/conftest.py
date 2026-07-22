@@ -131,7 +131,7 @@ def test_session(db: Session, test_user: User) -> PracticeSession:
     session = PracticeSession(
         id=uuid.uuid4(),
         user_id=test_user.id,
-        mode=SessionMode.impromptu,
+        mode=SessionMode.freestyle,
         prompt_text="Test prompt",
         prep_seconds=30,
         speak_seconds=120,

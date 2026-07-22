@@ -11,7 +11,7 @@ from app.db.base import Base
 
 
 class SessionMode(str, enum.Enum):
-    impromptu = "impromptu"
+    freestyle = "freestyle"
     debate = "debate"
     interview = "interview"
     storytelling = "storytelling"
@@ -44,6 +44,9 @@ class PracticeSession(Base):
         SAEnum(SessionMode, name="sessionmode"), nullable=False
     )
     prompt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    prompt_format: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    debate_side: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    hints_enabled: Mapped[bool] = mapped_column(default=False)
     prep_seconds: Mapped[int] = mapped_column(Integer, default=30)
     speak_seconds: Mapped[int] = mapped_column(Integer, default=120)
     status: Mapped[SessionStatus] = mapped_column(

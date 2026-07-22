@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import CurtainOverlay from "@/components/curtain/CurtainOverlay";
 import StageReveal from "@/components/curtain/StageReveal";
-import { updateSession } from "@/lib/api/client";
+import { getSession, updateSession } from "@/lib/api/client";
 
 export default function CurtainPage() {
   const params = useParams();
@@ -16,7 +16,29 @@ export default function CurtainPage() {
   const [phase, setPhase] = useState<
     "prep" | "curtain-opening" | "recording" | "redirect"
   >("prep");
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [debateSide, setDebateSide] = useState<string | null>(null);
+  const [sessionMode, setSessionMode] = useState<string | null>(null);
+
+  useEffect(() => {
+    getSession(sessionId).then((s) => {
+      setCountdown(s.prep_seconds);
+      setDebateSide(s.debate_side);
+      setSessionMode(s.mode);
+    }).catch(() => {
+      setCountdown(5);
+    });
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (phase !== "prep" || countdown === null) return;
+    if (countdown <= 0) {
+      setPhase("curtain-opening");
+      return;
+    }
+    const timer = setTimeout(() => setCountdown((c) => (c as number) - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [phase, countdown]);
 
   useEffect(() => {
     if (phase !== "prep") return;
@@ -78,7 +100,17 @@ export default function CurtainPage() {
             <p className="mt-6 text-text-muted">
               Take a moment to organize your thoughts.
             </p>
-          </motion.div>
+
+            {debateSide && (
+              <motion.p
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.4, duration: 0.3 }}
+                className="mt-4 inline-block rounded-full border border-gold/20 bg-gold/5 px-4 py-1.5 text-sm font-medium text-gold"
+              >
+                You are arguing <span className="uppercase">{debateSide}</span> this position
+              </motion.p>
+            )}
         )}
       </AnimatePresence>
 
